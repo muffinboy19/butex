@@ -1,8 +1,57 @@
 # Butex API Reference
 
 **Base URL (local):** `http://localhost:8080`  
-**Base URL (production):** `https://butex-8fr2.onrender.com`  
-**Swagger UI:** `/swagger-ui/index.html`
+**Base URL (hosted):** `https://butex-8fr2.onrender.com`  
+**Swagger UI:** `/swagger-ui/index.html`  
+*(Hosted app on Render free tier may take ~50s to wake on first request.)*
+
+### Hosted curl (copy-paste)
+
+```bash
+# Plans & tiers
+curl https://butex-8fr2.onrender.com/api/v1/membership/plans
+curl https://butex-8fr2.onrender.com/api/v1/membership/tiers
+
+# Create user
+curl -X POST https://butex-8fr2.onrender.com/api/v1/users \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Demo","email":"demo@example.com","phone":"9000000001"}'
+
+# Subscribe (use planDetailsId / tierDetailsId from plans & tiers responses)
+curl -X POST https://butex-8fr2.onrender.com/api/v1/users/1/subscriptions \
+  -H "Content-Type: application/json" \
+  -d '{"planDetailsId":1,"tierDetailsId":1}'
+
+# Current subscription
+curl https://butex-8fr2.onrender.com/api/v1/users/1/subscriptions/current
+
+# Subscription history
+curl https://butex-8fr2.onrender.com/api/v1/users/1/subscriptions
+
+# Cancel
+curl -X POST https://butex-8fr2.onrender.com/api/v1/users/1/subscriptions/cancel
+
+# Renew
+curl -X POST https://butex-8fr2.onrender.com/api/v1/users/1/subscriptions/renew
+
+# Change tier
+curl -X PUT https://butex-8fr2.onrender.com/api/v1/users/1/subscriptions/tier \
+  -H "Content-Type: application/json" \
+  -d '{"tierDetailsId":2}'
+
+# Change plan
+curl -X PUT https://butex-8fr2.onrender.com/api/v1/users/1/subscriptions/plan \
+  -H "Content-Type: application/json" \
+  -d '{"planDetailsId":2}'
+
+# Checkout benefits
+curl -X POST https://butex-8fr2.onrender.com/api/v1/users/1/checkout/benefits \
+  -H "Content-Type: application/json" \
+  -d '{"items":[{"itemId":"SKU-1","categoryId":"GROCERIES","lineTotal":1000}]}'
+
+# Get user
+curl https://butex-8fr2.onrender.com/api/v1/users/1
+```
 
 All endpoints return a standard wrapper:
 
@@ -494,6 +543,8 @@ Calculate membership benefits and discounts for a cart at checkout.
 
 ## 6. Quick test flow
 
+**Hosted** (`BASE=https://butex-8fr2.onrender.com`):
+
 ```bash
 BASE=https://butex-8fr2.onrender.com
 
@@ -521,6 +572,23 @@ curl -X POST $BASE/api/v1/users/1/checkout/benefits \
 
 # 6. Renew
 curl -X POST $BASE/api/v1/users/1/subscriptions/renew
+
+# 7. Cancel
+curl -X POST $BASE/api/v1/users/1/subscriptions/cancel
+```
+
+**Local** (`BASE=http://localhost:8080`):
+
+```bash
+BASE=http://localhost:8080
+
+curl $BASE/api/v1/membership/plans
+curl -X POST $BASE/api/v1/users \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Demo","email":"demo@example.com","phone":"9000000001"}'
+curl -X POST $BASE/api/v1/users/1/subscriptions \
+  -H "Content-Type: application/json" \
+  -d '{"planDetailsId":1,"tierDetailsId":1}'
 ```
 
 ---

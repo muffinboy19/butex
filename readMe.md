@@ -7,7 +7,7 @@ Built as part of a backend task — repo name **butex** is intentional.
 **Live demo:** https://butex-8fr2.onrender.com  
 **Swagger UI:** https://butex-8fr2.onrender.com/swagger-ui/index.html  
 
-*(Render free tier may sleep — first request can take ~30s to wake up.)*
+*(Render free tier may sleep — first request can take ~50s to wake up.)*
 
 ---
 
@@ -199,44 +199,13 @@ App runs at **http://localhost:8080**
 
 ---
 
-## Deploy (Render / Railway / similar)
-
-Set these environment variables:
-
-| Variable | Example |
-|----------|---------|
-| `SPRING_PROFILES_ACTIVE` | `prod` |
-| `SPRING_DATASOURCE_URL` | `jdbc:postgresql://...?sslmode=require` |
-| `SPRING_DATASOURCE_USERNAME` | your Neon user |
-| `SPRING_DATASOURCE_PASSWORD` | your Neon password |
-| `REDIS_URL` | `redis://red-d2tub8buibrs73f57f1g:6379` |
-
-**Build:** `./mvnw clean package -DskipTests`  
-**Start:** `java -jar target/butex-0.0.1-SNAPSHOT.jar`
-
-Or with Docker:
-
-```bash
-docker build -t butex .
-docker run -p 8080:8080 \
-  -e SPRING_DATASOURCE_URL="jdbc:postgresql://...?sslmode=require" \
-  -e SPRING_DATASOURCE_USERNAME=neondb_owner \
-  -e SPRING_DATASOURCE_PASSWORD=your_password \
-  -e REDIS_URL="redis://red-d2tub8buibrs73f57f1g:6379" \
-  butex
-```
-
-Tables are auto-created/updated on startup (`ddl-auto=update`).
-
----
-
 ## Database
 
 ### ER diagram
 
 ![Butex Membership ER diagram](docs/er-diagram.png)
 
-Source DBML (editable): [`docs/DATABASE.dbml`](docs/DATABASE.dbml) — paste into [dbdiagram.io](https://dbdiagram.io) to tweak or re-export.
+Source DBML (editable): [`docs/DATABASE.dbml`](docs/DATABASE.dbml) — paste into [dbdiagram.io](https://dbdiagram.io) to tweak or re-export. **Schema source of truth is `DATABASE.dbml` + JPA entities** (the PNG above is illustrative; e.g. `user_orders` in code has `order_value`, `ordered_at` — not `order_number` / `status` shown in some diagram exports).
 
 12 tables, including:
 
@@ -245,8 +214,6 @@ Source DBML (editable): [`docs/DATABASE.dbml`](docs/DATABASE.dbml) — paste int
 - `tiers`, `tier_details`, `tier_discount_rules`, `tier_details_history`
 - `subscriptions`, `user_subscription_history`
 - `user_orders` (drives tier promotion checks)
-
-Demo seed data (users, plans, tiers, subscriptions, etc.) lives in the Neon DB — not in the repo.
 
 ---
 
@@ -277,11 +244,7 @@ Override with env var `REDIS_URL` in prod or add to `application-local.propertie
 | `subscription-expiry-cron:{minute}` | Daily expiry job |
 | `tier-promotion-cron:{minute}` | Daily tier promotion job |
 
-`RedisLockService` mirrors the memcached `add` / `delete` pattern: `SET NX` with 120s TTL to acquire, `delete` to release. Integration tests use in-memory locks (`butex.lock.provider=in-memory`).
-
-### Response cache (30s TTL)
-
-`GET /api/v1/membership/plans` is cached in Redis via `@Cacheable` (cache name: `membership-plans`, TTL **30s**).
+`RedisLockService` mirrors the memcached `add` / `delete` pattern: `SET NX` with 120s TTL to acquire, `delete` to release. Integration tests use in-memory locks (`butex.lock.provider=in-memory`). `GET /api/v1/membership/plans` is cached for **10s** (`@Cacheable`).
 
 ---
 
