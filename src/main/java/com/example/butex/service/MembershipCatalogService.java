@@ -18,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -47,7 +48,7 @@ public class MembershipCatalogService {
     @Transactional(readOnly = true)
     public PlanDetails getActivePlanDetails(Long planDetailsId) {
         PlanDetails planDetails = findPlanDetails(planDetailsId);
-        if (planDetails.getStatus() != PlanDetailsStatus.ACTIVE) {
+        if (planDetails.getStatus() != PlanDetailsStatus.ACTIVE || !isEffectiveNow(planDetails)) {
             throw new com.example.butex.exception.BusinessException("Plan details is not active");
         }
         return planDetails;
@@ -56,10 +57,29 @@ public class MembershipCatalogService {
     @Transactional(readOnly = true)
     public TierDetails getActiveTierDetails(Long tierDetailsId) {
         TierDetails tierDetails = findTierDetails(tierDetailsId);
-        if (tierDetails.getStatus() != PlanDetailsStatus.ACTIVE) {
+        if (tierDetails.getStatus() != PlanDetailsStatus.ACTIVE || !isEffectiveNow(tierDetails)) {
             throw new com.example.butex.exception.BusinessException("Tier details is not active");
         }
         return tierDetails;
+    }
+
+    public static boolean isEffectiveNow(PlanDetails planDetails) {
+        return isWithinEffectiveWindow(planDetails.getEffectiveFrom(), planDetails.getEffectiveTo());
+    }
+
+    public static boolean isEffectiveNow(TierDetails tierDetails) {
+        return isWithinEffectiveWindow(tierDetails.getEffectiveFrom(), tierDetails.getEffectiveTo());
+    }
+
+    private static boolean isWithinEffectiveWindow(LocalDateTime effectiveFrom, LocalDateTime effectiveTo) {
+        LocalDateTime now = LocalDateTime.now();
+        if (effectiveFrom != null && effectiveFrom.isAfter(now)) {
+            return false;
+        }
+        if (effectiveTo != null && !effectiveTo.isAfter(now)) {
+            return false;
+        }
+        return true;
     }
 
     @Transactional(readOnly = true)
@@ -80,6 +100,7 @@ public class MembershipCatalogService {
         List<PlanDetailsResponse> details = planDetailsRepository
                 .findByPlanIdAndStatus(plan.getId(), PlanDetailsStatus.ACTIVE)
                 .stream()
+                .filter(MembershipCatalogService::isEffectiveNow)
                 .map(this::toPlanDetailsResponse)
                 .toList();
 
@@ -96,6 +117,7 @@ public class MembershipCatalogService {
         List<TierDetailsResponse> details = tierDetailsRepository
                 .findByTierIdAndStatus(tier.getId(), PlanDetailsStatus.ACTIVE)
                 .stream()
+                .filter(MembershipCatalogService::isEffectiveNow)
                 .map(this::toTierDetailsResponse)
                 .toList();
 

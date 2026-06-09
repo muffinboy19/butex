@@ -23,7 +23,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,6 +37,7 @@ public class CheckoutBenefitService {
     private final PlanDiscountRuleRepository planDiscountRuleRepository;
     private final TierDiscountRuleRepository tierDiscountRuleRepository;
     private final UserService userService;
+    private final SubscriptionValidityService subscriptionValidityService;
 
     @Transactional(readOnly = true)
     public CheckoutBenefitResponse calculateBenefits(Long userId, CheckoutBenefitRequest request) {
@@ -45,7 +45,7 @@ public class CheckoutBenefitService {
 
         Subscription subscription = subscriptionRepository
                 .findByUserIdAndStatus(userId, SubscriptionStatus.ACTIVE)
-                .filter(this::isCurrentlyValid)
+                .filter(subscriptionValidityService::isEffectivelyActive)
                 .orElse(null);
 
         if (subscription == null) {
@@ -100,10 +100,6 @@ public class CheckoutBenefitService {
                 .finalPayableAmount(cartSubtotal.subtract(totalDiscount))
                 .items(lineBenefits)
                 .build();
-    }
-
-    private boolean isCurrentlyValid(Subscription subscription) {
-        return subscription.getExpiresAt().isAfter(LocalDateTime.now());
     }
 
     private CheckoutBenefitResponse noMembershipResponse(CheckoutBenefitRequest request) {

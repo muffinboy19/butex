@@ -29,6 +29,7 @@ public class UserService {
                 .name(request.getName())
                 .email(request.getEmail())
                 .phone(request.getPhone())
+                .cohortCode(request.getCohortCode())
                 .build();
 
         User saved = userRepository.save(user);
@@ -65,6 +66,7 @@ public class UserService {
                 .email(user.getEmail())
                 .phone(user.getPhone())
                 .active(user.isActive())
+                .cohortCode(user.getCohortCode())
                 .build();
     }
 }

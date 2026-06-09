@@ -18,4 +18,6 @@ public class CreateUserRequest {
 
     @NotBlank(message = "phone is required")
     private String phone;
+
+    private String cohortCode;
 }

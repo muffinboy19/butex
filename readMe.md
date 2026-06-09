@@ -54,6 +54,11 @@ Built as part of a backend task — repo name **butex** is intentional.
 - Clean layered structure: `controller → service → repository → entity`
 - Consistent API wrapper (`status`, `message`, `data`)
 - Global exception handling + request validation
+- Tier eligibility enforced on subscribe and tier change
+- Expiry checked consistently across current subscription, renew, checkout, and crons
+- Partial DB unique index — one `ACTIVE` subscription per user
+- Swagger UI for API exploration
+- Integration tests for core membership flows
 - Basic concurrency guard on subscribe / cancel / tier change (`synchronized`)
 - PostgreSQL on **Neon** for cloud DB (local profile for dev, prod profile for hosting)
 
@@ -133,6 +138,8 @@ spring.datasource.driver-class-name=org.postgresql.Driver
 
 App runs at **http://localhost:8080**
 
+**API docs:** http://localhost:8080/swagger-ui/index.html
+
 ---
 
 ## Deploy (Render / Railway / similar)
@@ -180,19 +187,11 @@ Demo seed data (users, plans, tiers, subscriptions, etc.) lives in the Neon DB �
 
 ## Scheduled jobs
 
-**Subscription expiry** (default: **1:00 AM** daily) — marks active subscriptions past `expires_at` as `EXPIRED`.
+**Subscription expiry** — **1:00 AM** daily (`Constants.SUBSCRIPTION_EXPIRY_CRON`)
 
-```properties
-membership.subscription-expiry.enabled=true
-membership.subscription-expiry.cron=0 0 1 * * *
-```
+**Tier promotion** — **2:00 AM** daily (`Constants.TIER_PROMOTION_CRON`)
 
-**Tier promotion** (default: **2:00 AM** daily) — upgrades users who qualify for a higher tier.
-
-```properties
-membership.tier-promotion.enabled=true
-membership.tier-promotion.cron=0 0 2 * * *
-```
+Both jobs are always enabled. Change schedules in `Constants.java`.
 
 Tier promotion reads order data from `user_orders`. Users can have an optional `cohort_code` for cohort-based tiers.
 

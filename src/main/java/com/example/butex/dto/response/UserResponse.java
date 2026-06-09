@@ -12,4 +12,5 @@ public class UserResponse {
     private String email;
     private String phone;
     private boolean active;
+    private String cohortCode;
 }

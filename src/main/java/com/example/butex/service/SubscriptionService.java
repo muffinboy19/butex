@@ -38,18 +38,23 @@ public class SubscriptionService {
     private final MembershipCatalogService catalogService;
     private final PlanRepository planRepository;
     private final TierRepository tierRepository;
+    private final TierEligibilityService tierEligibilityService;
+    private final SubscriptionValidityService subscriptionValidityService;
 
     @Transactional
     public synchronized SubscriptionResponse subscribe(Long userId, SubscribeRequest request) {
-        userService.findUser(userId);
+        var user = userService.findUser(userId);
         validateSubscribeRequest(request);
 
-        if (subscriptionRepository.existsByUserIdAndStatus(userId, SubscriptionStatus.ACTIVE)) {
-            throw new BusinessException("User already has an active subscription");
-        }
+        subscriptionRepository.findByUserIdAndStatus(userId, SubscriptionStatus.ACTIVE)
+                .filter(subscriptionValidityService::isEffectivelyActive)
+                .ifPresent(sub -> {
+                    throw new BusinessException("User already has an active subscription");
+                });
 
         PlanDetails planDetails = catalogService.getActivePlanDetails(request.getPlanDetailsId());
         TierDetails tierDetails = catalogService.getActiveTierDetails(request.getTierDetailsId());
+        tierEligibilityService.requireEligible(user, tierDetails);
 
         LocalDateTime startsAt = LocalDateTime.now();
         Subscription subscription = Subscription.builder()
@@ -71,9 +76,7 @@ public class SubscriptionService {
     @Transactional(readOnly = true)
     public SubscriptionResponse getCurrentSubscription(Long userId) {
         userService.findUser(userId);
-        Subscription subscription = subscriptionRepository.findByUserIdAndStatus(userId, SubscriptionStatus.ACTIVE)
-                .orElseThrow(() -> new ResourceNotFoundException("No active subscription for user: " + userId));
-        return toResponse(subscription);
+        return toResponse(getEffectivelyActiveSubscriptionOrThrow(userId));
     }
 
     @Transactional(readOnly = true)
@@ -96,7 +99,7 @@ public class SubscriptionService {
 
     @Transactional
     public synchronized SubscriptionResponse renewSubscription(Long userId) {
-        Subscription subscription = getActiveSubscriptionOrThrow(userId);
+        Subscription subscription = getEffectivelyActiveSubscriptionOrThrow(userId);
         PlanDetails planDetails = catalogService.getActivePlanDetails(subscription.getPlanDetailsId());
 
         LocalDateTime extensionStart = subscription.getExpiresAt().isAfter(LocalDateTime.now())
@@ -118,7 +121,7 @@ public class SubscriptionService {
             throw new BusinessException("planDetailsId is required");
         }
 
-        Subscription subscription = getActiveSubscriptionOrThrow(userId);
+        Subscription subscription = getEffectivelyActiveSubscriptionOrThrow(userId);
         PlanDetails currentPlanDetails = catalogService.getActivePlanDetails(subscription.getPlanDetailsId());
         PlanDetails newPlanDetails = catalogService.getActivePlanDetails(request.getPlanDetailsId());
 
@@ -149,9 +152,11 @@ public class SubscriptionService {
             throw new BusinessException("tierDetailsId is required");
         }
 
-        Subscription subscription = getActiveSubscriptionOrThrow(userId);
+        var user = userService.findUser(userId);
+        Subscription subscription = getEffectivelyActiveSubscriptionOrThrow(userId);
         TierDetails currentTierDetails = catalogService.getActiveTierDetails(subscription.getTierDetailsId());
         TierDetails newTierDetails = catalogService.getActiveTierDetails(request.getTierDetailsId());
+        tierEligibilityService.requireEligible(user, newTierDetails);
 
         Tier currentTier = tierRepository.findById(currentTierDetails.getTierId())
                 .orElseThrow(() -> new ResourceNotFoundException("Tier not found"));
@@ -198,10 +203,18 @@ public class SubscriptionService {
                 "Tier changed from " + currentTier.getCode() + " to " + newTier.getCode(), actionBy);
     }
 
+    private Subscription getEffectivelyActiveSubscriptionOrThrow(Long userId) {
+        Subscription subscription = subscriptionRepository.findByUserIdAndStatus(userId, SubscriptionStatus.ACTIVE)
+                .orElseThrow(() -> new ResourceNotFoundException("No active subscription for user: " + userId));
+        if (!subscriptionValidityService.isEffectivelyActive(subscription)) {
+            throw new ResourceNotFoundException("No active subscription for user: " + userId);
+        }
+        return subscription;
+    }
+
     private Subscription getActiveSubscriptionOrThrow(Long userId) {
         userService.findUser(userId);
-        return subscriptionRepository.findByUserIdAndStatus(userId, SubscriptionStatus.ACTIVE)
-                .orElseThrow(() -> new ResourceNotFoundException("No active subscription for user: " + userId));
+        return getEffectivelyActiveSubscriptionOrThrow(userId);
     }
 
     private void validateSubscribeRequest(SubscribeRequest request) {
