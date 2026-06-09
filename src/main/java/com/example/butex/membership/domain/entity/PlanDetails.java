@@ -1,9 +1,7 @@
 package com.example.butex.membership.domain.entity;
 
 import com.example.butex.membership.domain.enums.PlanDetailsStatus;
-import com.example.butex.membership.domain.value.PlanBenefits;
 import jakarta.persistence.Column;
-import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -20,10 +18,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -39,7 +35,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Slf4j
 public class PlanDetails {
 
     @Id
@@ -62,18 +57,45 @@ public class PlanDetails {
     @Column(nullable = false, length = 3)
     private String currency = "INR";
 
-    @Embedded
-    private PlanBenefits benefits;
-
+    @Builder.Default
     @Column(nullable = false)
-    private LocalDate effectiveFrom;
+    private boolean freeDeliveryEnabled = false;
 
-    private LocalDate effectiveTo;
+    @Column(precision = 5, scale = 2)
+    private BigDecimal extraDiscountPercent;
+
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean exclusiveDealsAccess = false;
+
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean earlySaleAccess = false;
+
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean prioritySupport = false;
+
+    @Column(length = 2000)
+    private String applicableCategories;
+
+    @Column(length = 2000)
+    private String additionalPerksJson;
+
+    @Column(name = "effective_from", nullable = false)
+    private LocalDateTime effectiveFrom;
+
+    @Column(name = "effective_to")
+    private LocalDateTime effectiveTo;
 
     @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     private PlanDetailsStatus status = PlanDetailsStatus.DRAFT;
+
+    @Builder.Default
+    @Column(name = "is_default", nullable = false)
+    private boolean isDefault = false;
 
     @Column(length = 512)
     private String changeNotes;
@@ -89,12 +111,10 @@ public class PlanDetails {
         LocalDateTime now = LocalDateTime.now();
         createdAt = now;
         updatedAt = now;
-        log.debug("Created plan details planId={} version={} durationDays={}", planId, version, durationDays);
     }
 
     @PreUpdate
     void onUpdate() {
         updatedAt = LocalDateTime.now();
-        log.debug("Updated plan details id={} planId={} version={}", id, planId, version);
     }
 }
