@@ -28,15 +28,23 @@ Built as part of a backend task — repo name **butex** is intentional.
 - View full **subscription history**
 - **Cancel** an active subscription
 - **Change tier** (upgrade / downgrade)
+- **Renew** an active subscription (extends expiry by plan duration)
+- **Change plan** (e.g. Monthly → Yearly)
+- **Auto-expire** cron marks overdue active subscriptions as `EXPIRED`
 
 ### Users
 - Create a user (name, email, phone)
 - Fetch user by ID
 
+### Checkout benefits
+- **Checkout API** applies membership perks to a cart
+- Merges plan + tier base discounts with item/category discount rules
+- Returns free delivery, exclusive deals, early sale, priority support flags
+- Per-line and total discount amounts for checkout
+
 ### Benefits & discounts (data model)
-- Plan and tier benefits are stored on each plan/tier version
+- Plan and tier benefits stored on each plan/tier version
 - Separate **discount rule** tables for item/category-level discounts
-- Good foundation for checkout integration later
 
 ### Audit trail
 - **Plan details history** — when plan pricing/versions were created or changed
@@ -75,6 +83,9 @@ Built as part of a backend task — repo name **butex** is intentional.
 | `GET` | `/api/v1/users/{userId}/subscriptions` | Get subscription history |
 | `POST` | `/api/v1/users/{userId}/subscriptions/cancel` | Cancel active subscription |
 | `PUT` | `/api/v1/users/{userId}/subscriptions/tier` | Upgrade / downgrade tier |
+| `POST` | `/api/v1/users/{userId}/subscriptions/renew` | Renew active subscription |
+| `PUT` | `/api/v1/users/{userId}/subscriptions/plan` | Change membership plan |
+| `POST` | `/api/v1/users/{userId}/checkout/benefits` | Apply membership benefits to cart |
 
 ### Example: subscribe
 
@@ -85,6 +96,19 @@ curl -X POST http://localhost:8080/api/v1/users/1/subscriptions \
 ```
 
 Get `planDetailsId` and `tierDetailsId` from the `/plans` and `/tiers` responses first.
+
+### Example: checkout benefits
+
+```bash
+curl -X POST http://localhost:8080/api/v1/users/1/checkout/benefits \
+  -H "Content-Type: application/json" \
+  -d '{
+    "items": [
+      {"itemId": "SKU-DAIRY-001", "categoryId": "GROCERIES", "lineTotal": 500},
+      {"itemId": "SKU-PHONE-200", "categoryId": "ELECTRONICS", "lineTotal": 15000}
+    ]
+  }'
+```
 
 ---
 
@@ -125,6 +149,17 @@ Set these environment variables:
 **Build:** `./mvnw clean package -DskipTests`  
 **Start:** `java -jar target/butex-0.0.1-SNAPSHOT.jar`
 
+Or with Docker:
+
+```bash
+docker build -t butex .
+docker run -p 8080:8080 \
+  -e SPRING_DATASOURCE_URL="jdbc:postgresql://...?sslmode=require" \
+  -e SPRING_DATASOURCE_USERNAME=neondb_owner \
+  -e SPRING_DATASOURCE_PASSWORD=your_password \
+  butex
+```
+
 Tables are auto-created/updated on startup (`ddl-auto=update`).
 
 ---
@@ -143,24 +178,23 @@ Demo seed data (users, plans, tiers, subscriptions, etc.) lives in the Neon DB �
 
 ---
 
-## Tier promotion cron
+## Scheduled jobs
 
-Runs on a schedule (default: **every day at 2:00 AM**). Configure in `application.properties`:
+**Subscription expiry** (default: **1:00 AM** daily) — marks active subscriptions past `expires_at` as `EXPIRED`.
+
+```properties
+membership.subscription-expiry.enabled=true
+membership.subscription-expiry.cron=0 0 1 * * *
+```
+
+**Tier promotion** (default: **2:00 AM** daily) — upgrades users who qualify for a higher tier.
 
 ```properties
 membership.tier-promotion.enabled=true
 membership.tier-promotion.cron=0 0 2 * * *
 ```
 
-Order data is read from the `user_orders` table. Users also need an optional `cohort_code` on the `users` table for Platinum-style cohort tiers.
-
----
-
-## Not in scope yet
-
-- Renew subscription API
-- Checkout / benefit application at order time
-- API to record orders (orders are expected in `user_orders` for the cron to use)
+Tier promotion reads order data from `user_orders`. Users can have an optional `cohort_code` for cohort-based tiers.
 
 ---
 
@@ -169,7 +203,8 @@ Order data is read from the `user_orders` table. Users also need an optional `co
 ```
 src/main/java/com/example/butex/
 ├── controller/     # REST APIs
-├── service/        # Business logic
+├── server/scheduler/  # SchedulerService — all cron jobs
+├── service/           # Business logic
 ├── repository/     # DB access
 ├── entity/         # JPA models
 ├── dto/            # Request & response objects

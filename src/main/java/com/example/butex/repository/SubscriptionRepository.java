@@ -4,6 +4,7 @@ import com.example.butex.entity.Subscription;
 import com.example.butex.enums.SubscriptionStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,4 +17,6 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, Long
     boolean existsByUserIdAndStatus(Long userId, SubscriptionStatus status);
 
     List<Subscription> findByStatus(SubscriptionStatus status);
+
+    List<Subscription> findByStatusAndExpiresAtBefore(SubscriptionStatus status, LocalDateTime expiresAt);
 }

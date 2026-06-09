@@ -1,5 +1,6 @@
 package com.example.butex.controller;
 
+import com.example.butex.dto.request.ChangePlanRequest;
 import com.example.butex.dto.request.ChangeTierRequest;
 import com.example.butex.dto.request.SubscribeRequest;
 import com.example.butex.service.SubscriptionService;
@@ -45,5 +46,15 @@ public class SubscriptionController extends ControllerHelper {
     @PutMapping("/tier")
     public ResponseEntity<?> changeTier(@PathVariable Long userId, @Valid @RequestBody ChangeTierRequest request) {
         return sendSuccessResponse(subscriptionService.changeTier(userId, request), Constants.SUCCESSFUL_STATUS_MESSAGE);
+    }
+
+    @PostMapping("/renew")
+    public ResponseEntity<?> renewSubscription(@PathVariable Long userId) {
+        return sendSuccessResponse(subscriptionService.renewSubscription(userId), Constants.SUCCESSFUL_STATUS_MESSAGE);
+    }
+
+    @PutMapping("/plan")
+    public ResponseEntity<?> changePlan(@PathVariable Long userId, @Valid @RequestBody ChangePlanRequest request) {
+        return sendSuccessResponse(subscriptionService.changePlan(userId, request), Constants.SUCCESSFUL_STATUS_MESSAGE);
     }
 }

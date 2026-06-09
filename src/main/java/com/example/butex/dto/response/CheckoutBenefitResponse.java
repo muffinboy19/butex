@@ -1,0 +1,35 @@
+package com.example.butex.dto.response;
+
+import lombok.Builder;
+import lombok.Getter;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+@Getter
+@Builder
+public class CheckoutBenefitResponse {
+
+    private boolean membershipActive;
+    private String planCode;
+    private String tierCode;
+    private boolean freeDelivery;
+    private boolean exclusiveDealsAccess;
+    private boolean earlySaleAccess;
+    private boolean prioritySupport;
+    private BigDecimal cartSubtotal;
+    private BigDecimal totalDiscountAmount;
+    private BigDecimal finalPayableAmount;
+    private List<LineItemBenefit> items;
+
+    @Getter
+    @Builder
+    public static class LineItemBenefit {
+        private String itemId;
+        private String categoryId;
+        private BigDecimal lineTotal;
+        private BigDecimal appliedDiscountPercent;
+        private BigDecimal discountAmount;
+        private BigDecimal payableAmount;
+    }
+}

@@ -9,6 +9,7 @@ import com.example.butex.entity.UserSubscriptionHistory;
 import com.example.butex.enums.SubscriptionStatus;
 import com.example.butex.enums.SubscriptionSubStatus;
 import com.example.butex.enums.UserSubscriptionHistoryAction;
+import com.example.butex.dto.request.ChangePlanRequest;
 import com.example.butex.dto.request.ChangeTierRequest;
 import com.example.butex.dto.request.SubscribeRequest;
 import com.example.butex.dto.response.SubscriptionResponse;
@@ -91,6 +92,55 @@ public class SubscriptionService {
         saveHistory(userId, saved.getId(), UserSubscriptionHistoryAction.CANCELLED, "Subscription cancelled", "system");
         log.info("User {} cancelled subscriptionId={}", userId, saved.getId());
         return toResponse(saved);
+    }
+
+    @Transactional
+    public synchronized SubscriptionResponse renewSubscription(Long userId) {
+        Subscription subscription = getActiveSubscriptionOrThrow(userId);
+        PlanDetails planDetails = catalogService.getActivePlanDetails(subscription.getPlanDetailsId());
+
+        LocalDateTime extensionStart = subscription.getExpiresAt().isAfter(LocalDateTime.now())
+                ? subscription.getExpiresAt()
+                : LocalDateTime.now();
+        subscription.setExpiresAt(extensionStart.plusDays(planDetails.getDurationDays()));
+        subscription.setSubStatus(SubscriptionSubStatus.RENEWED);
+        subscriptionRepository.save(subscription);
+
+        saveHistory(userId, subscription.getId(), UserSubscriptionHistoryAction.RENEWED,
+                "Membership renewed on " + planDetails.getDurationDays() + "-day plan", "system");
+        log.info("User {} renewed subscriptionId={}", userId, subscription.getId());
+        return toResponse(subscription);
+    }
+
+    @Transactional
+    public synchronized SubscriptionResponse changePlan(Long userId, ChangePlanRequest request) {
+        if (request.getPlanDetailsId() == null) {
+            throw new BusinessException("planDetailsId is required");
+        }
+
+        Subscription subscription = getActiveSubscriptionOrThrow(userId);
+        PlanDetails currentPlanDetails = catalogService.getActivePlanDetails(subscription.getPlanDetailsId());
+        PlanDetails newPlanDetails = catalogService.getActivePlanDetails(request.getPlanDetailsId());
+
+        if (currentPlanDetails.getId().equals(newPlanDetails.getId())) {
+            throw new BusinessException("User is already on this plan details version");
+        }
+
+        Plan currentPlan = planRepository.findById(currentPlanDetails.getPlanId())
+                .orElseThrow(() -> new ResourceNotFoundException("Plan not found"));
+        Plan newPlan = planRepository.findById(newPlanDetails.getPlanId())
+                .orElseThrow(() -> new ResourceNotFoundException("Plan not found"));
+
+        LocalDateTime now = LocalDateTime.now();
+        subscription.setPlanDetailsId(newPlanDetails.getId());
+        subscription.setStartsAt(now);
+        subscription.setExpiresAt(now.plusDays(newPlanDetails.getDurationDays()));
+        subscriptionRepository.save(subscription);
+
+        saveHistory(userId, subscription.getId(), UserSubscriptionHistoryAction.PLAN_CHANGED,
+                "Plan changed from " + currentPlan.getCode() + " to " + newPlan.getCode(), "system");
+        log.info("User {} changed plan on subscriptionId={}", userId, subscription.getId());
+        return toResponse(subscription);
     }
 
     @Transactional
