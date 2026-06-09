@@ -19,6 +19,8 @@ import com.example.butex.repository.PlanRepository;
 import com.example.butex.repository.SubscriptionRepository;
 import com.example.butex.repository.TierRepository;
 import com.example.butex.repository.UserSubscriptionHistoryRepository;
+import com.example.butex.service.lock.DistributedLockService;
+import com.example.butex.util.Constants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -40,9 +42,14 @@ public class SubscriptionService {
     private final TierRepository tierRepository;
     private final TierEligibilityService tierEligibilityService;
     private final SubscriptionValidityService subscriptionValidityService;
+    private final DistributedLockService distributedLockService;
 
     @Transactional
-    public synchronized SubscriptionResponse subscribe(Long userId, SubscribeRequest request) {
+    public SubscriptionResponse subscribe(Long userId, SubscribeRequest request) {
+        return withUserLock(userId, () -> doSubscribe(userId, request));
+    }
+
+    private SubscriptionResponse doSubscribe(Long userId, SubscribeRequest request) {
         var user = userService.findUser(userId);
         validateSubscribeRequest(request);
 
@@ -88,7 +95,11 @@ public class SubscriptionService {
     }
 
     @Transactional
-    public synchronized SubscriptionResponse cancelSubscription(Long userId) {
+    public SubscriptionResponse cancelSubscription(Long userId) {
+        return withUserLock(userId, () -> doCancelSubscription(userId));
+    }
+
+    private SubscriptionResponse doCancelSubscription(Long userId) {
         Subscription subscription = getActiveSubscriptionOrThrow(userId);
         subscription.setStatus(SubscriptionStatus.CANCELLED);
         Subscription saved = subscriptionRepository.save(subscription);
@@ -98,7 +109,11 @@ public class SubscriptionService {
     }
 
     @Transactional
-    public synchronized SubscriptionResponse renewSubscription(Long userId) {
+    public SubscriptionResponse renewSubscription(Long userId) {
+        return withUserLock(userId, () -> doRenewSubscription(userId));
+    }
+
+    private SubscriptionResponse doRenewSubscription(Long userId) {
         Subscription subscription = getEffectivelyActiveSubscriptionOrThrow(userId);
         PlanDetails planDetails = catalogService.getActivePlanDetails(subscription.getPlanDetailsId());
 
@@ -116,7 +131,11 @@ public class SubscriptionService {
     }
 
     @Transactional
-    public synchronized SubscriptionResponse changePlan(Long userId, ChangePlanRequest request) {
+    public SubscriptionResponse changePlan(Long userId, ChangePlanRequest request) {
+        return withUserLock(userId, () -> doChangePlan(userId, request));
+    }
+
+    private SubscriptionResponse doChangePlan(Long userId, ChangePlanRequest request) {
         if (request.getPlanDetailsId() == null) {
             throw new BusinessException("planDetailsId is required");
         }
@@ -147,7 +166,11 @@ public class SubscriptionService {
     }
 
     @Transactional
-    public synchronized SubscriptionResponse changeTier(Long userId, ChangeTierRequest request) {
+    public SubscriptionResponse changeTier(Long userId, ChangeTierRequest request) {
+        return withUserLock(userId, () -> doChangeTier(userId, request));
+    }
+
+    private SubscriptionResponse doChangeTier(Long userId, ChangeTierRequest request) {
         if (request.getTierDetailsId() == null) {
             throw new BusinessException("tierDetailsId is required");
         }
@@ -173,8 +196,14 @@ public class SubscriptionService {
     }
 
     @Transactional
-    public synchronized boolean promoteToTier(Subscription subscription, TierDetails newTierDetails,
-                                              Tier currentTier, Tier newTier, String actionBy) {
+    public boolean promoteToTier(Subscription subscription, TierDetails newTierDetails,
+                                 Tier currentTier, Tier newTier, String actionBy) {
+        return withUserLock(subscription.getUserId(),
+                () -> doPromoteToTier(subscription, newTierDetails, currentTier, newTier, actionBy));
+    }
+
+    private boolean doPromoteToTier(Subscription subscription, TierDetails newTierDetails,
+                                    Tier currentTier, Tier newTier, String actionBy) {
         if (newTier.getRank() <= currentTier.getRank()) {
             return false;
         }
@@ -215,6 +244,21 @@ public class SubscriptionService {
     private Subscription getActiveSubscriptionOrThrow(Long userId) {
         userService.findUser(userId);
         return getEffectivelyActiveSubscriptionOrThrow(userId);
+    }
+
+    private <T> T withUserLock(Long userId, LockedAction<T> action) {
+        String key = Constants.SUBSCRIPTION_USER_LOCK_PREFIX + userId;
+        distributedLockService.getLockOnKey(key);
+        try {
+            return action.run();
+        } finally {
+            distributedLockService.releaseLockOnKey(key);
+        }
+    }
+
+    @FunctionalInterface
+    private interface LockedAction<T> {
+        T run();
     }
 
     private void validateSubscribeRequest(SubscribeRequest request) {

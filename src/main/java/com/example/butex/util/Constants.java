@@ -15,6 +15,10 @@ public final class Constants {
     /** Every day at 2:00 AM — promote users to higher qualifying tiers */
     public static final String TIER_PROMOTION_CRON = "0 0 2 * * *";
 
+    public static final String SUBSCRIPTION_EXPIRY_LOCK_PREFIX = "subscription-expiry-cron:";
+    public static final String TIER_PROMOTION_LOCK_PREFIX = "tier-promotion-cron:";
+    public static final String SUBSCRIPTION_USER_LOCK_PREFIX = "subscription-user:";
+
     private Constants() {
     }
 }
