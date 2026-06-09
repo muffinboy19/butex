@@ -4,6 +4,11 @@ A Spring Boot backend for FirstClub’s membership program. Users can pick a pla
 
 Built as part of a backend task — repo name **butex** is intentional.
 
+**Live demo:** https://butex-8fr2.onrender.com  
+**Swagger UI:** https://butex-8fr2.onrender.com/swagger-ui/index.html  
+
+*(Render free tier may sleep — first request can take ~30s to wake up.)*
+
 ---
 
 ## What we built
@@ -70,13 +75,34 @@ Built as part of a backend task — repo name **butex** is intentional.
 - Spring Boot 4
 - Spring Data JPA
 - PostgreSQL (Neon)
-- Redis (distributed locking)
+- Redis (distributed locking + response cache)
 - Lombok
 - Maven
 
 ---
 
 Full API docs with request/response examples: **[docs/API.md](docs/API.md)**
+
+## Try the hosted API
+
+Base URL: **https://butex-8fr2.onrender.com**
+
+Quick smoke test (no setup needed):
+
+```bash
+# List plans
+curl https://butex-8fr2.onrender.com/api/v1/membership/plans
+
+# List tiers
+curl https://butex-8fr2.onrender.com/api/v1/membership/tiers
+
+# Create a user
+curl -X POST https://butex-8fr2.onrender.com/api/v1/users \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Test User", "email": "test@example.com", "phone": "9876543210"}'
+```
+
+Use the returned `userId` plus `planDetailsId` / `tierDetailsId` from `/plans` and `/tiers` for subscribe and other flows. Interactive testing: **[Swagger UI](https://butex-8fr2.onrender.com/swagger-ui/index.html)**.
 
 ## API endpoints
 
@@ -97,6 +123,16 @@ Full API docs with request/response examples: **[docs/API.md](docs/API.md)**
 
 ### Example: subscribe
 
+**Hosted:**
+
+```bash
+curl -X POST https://butex-8fr2.onrender.com/api/v1/users/1/subscriptions \
+  -H "Content-Type: application/json" \
+  -d '{"planDetailsId": 1, "tierDetailsId": 1}'
+```
+
+**Local:**
+
 ```bash
 curl -X POST http://localhost:8080/api/v1/users/1/subscriptions \
   -H "Content-Type: application/json" \
@@ -106,6 +142,21 @@ curl -X POST http://localhost:8080/api/v1/users/1/subscriptions \
 Get `planDetailsId` and `tierDetailsId` from the `/plans` and `/tiers` responses first.
 
 ### Example: checkout benefits
+
+**Hosted:**
+
+```bash
+curl -X POST https://butex-8fr2.onrender.com/api/v1/users/1/checkout/benefits \
+  -H "Content-Type: application/json" \
+  -d '{
+    "items": [
+      {"itemId": "SKU-DAIRY-001", "categoryId": "GROCERIES", "lineTotal": 500},
+      {"itemId": "SKU-PHONE-200", "categoryId": "ELECTRONICS", "lineTotal": 15000}
+    ]
+  }'
+```
+
+**Local:**
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/users/1/checkout/benefits \
@@ -219,12 +270,18 @@ Tier promotion reads order data from `user_orders`. Users can have an optional `
 
 Override with env var `REDIS_URL` in prod or add to `application-local.properties` for local dev.
 
+### Distributed locks (cron jobs only)
+
 | Lock key pattern | Used for |
 |------------------|----------|
 | `subscription-expiry-cron:{minute}` | Daily expiry job |
 | `tier-promotion-cron:{minute}` | Daily tier promotion job |
 
 `RedisLockService` mirrors the memcached `add` / `delete` pattern: `SET NX` with 120s TTL to acquire, `delete` to release. Integration tests use in-memory locks (`butex.lock.provider=in-memory`).
+
+### Response cache (30s TTL)
+
+`GET /api/v1/membership/plans` is cached in Redis via `@Cacheable` (cache name: `membership-plans`, TTL **30s**).
 
 ---
 

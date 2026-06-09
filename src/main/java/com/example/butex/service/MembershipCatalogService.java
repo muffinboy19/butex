@@ -13,8 +13,10 @@ import com.example.butex.repository.PlanDetailsRepository;
 import com.example.butex.repository.PlanRepository;
 import com.example.butex.repository.TierDetailsRepository;
 import com.example.butex.repository.TierRepository;
+import com.example.butex.util.Constants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +34,7 @@ public class MembershipCatalogService {
     private final TierDetailsRepository tierDetailsRepository;
 
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = Constants.CACHE_MEMBERSHIP_PLANS)
     public List<PlanResponse> getActivePlans() {
         return planRepository.findByActiveTrue().stream()
                 .map(this::toPlanResponse)

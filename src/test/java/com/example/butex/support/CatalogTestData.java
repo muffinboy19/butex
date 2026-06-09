@@ -45,6 +45,20 @@ public class CatalogTestData {
                 .isDefault(true)
                 .build());
 
+        Plan yearlyPlan = planRepository.save(Plan.builder()
+                .code("YEARLY")
+                .name("Yearly")
+                .build());
+        PlanDetails yearlyPlanDetails = planDetailsRepository.save(PlanDetails.builder()
+                .planId(yearlyPlan.getId())
+                .version(1)
+                .durationDays(365)
+                .price(new BigDecimal("2499.00"))
+                .effectiveFrom(effectiveFrom)
+                .status(PlanDetailsStatus.ACTIVE)
+                .isDefault(true)
+                .build());
+
         Tier silver = tierRepository.save(Tier.builder()
                 .code("SILVER")
                 .name("Silver")
@@ -81,13 +95,19 @@ public class CatalogTestData {
                 .phone("9999999999")
                 .build());
 
-        return new SeededCatalog(planDetails.getId(), silverDetails.getId(), goldDetails.getId(), user.getId());
+        return new SeededCatalog(
+                planDetails.getId(),
+                yearlyPlanDetails.getId(),
+                silverDetails.getId(),
+                goldDetails.getId(),
+                user.getId());
     }
 
     @Getter
     @RequiredArgsConstructor
     public static class SeededCatalog {
         private final Long planDetailsId;
+        private final Long alternatePlanDetailsId;
         private final Long silverTierDetailsId;
         private final Long goldTierDetailsId;
         private final Long userId;
