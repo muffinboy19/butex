@@ -75,6 +75,8 @@ Built as part of a backend task — repo name **butex** is intentional.
 
 ---
 
+Full API docs with request/response examples: **[docs/API.md](docs/API.md)**
+
 ## API endpoints
 
 | Method | Endpoint | What it does |
@@ -173,11 +175,13 @@ Tables are auto-created/updated on startup (`ddl-auto=update`).
 
 ## Database
 
-11 tables, including:
+ER diagram: paste `docs/DATABASE.dbml` into [dbdiagram.io](https://dbdiagram.io) to view or export PNG.
+
+12 tables, including:
 
 - `users`, `user_addresses`
 - `plans`, `plan_details`, `plan_discount_rules`, `plan_details_history`
-- `tiers`, `tier_details`, `tier_discount_rules`
+- `tiers`, `tier_details`, `tier_discount_rules`, `tier_details_history`
 - `subscriptions`, `user_subscription_history`
 - `user_orders` (drives tier promotion checks)
 
