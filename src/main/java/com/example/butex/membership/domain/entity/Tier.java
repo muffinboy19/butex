@@ -1,10 +1,7 @@
 package com.example.butex.membership.domain.entity;
 
-import com.example.butex.membership.domain.enums.PlanDetailsStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -12,7 +9,6 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -24,44 +20,46 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(
-        name = "plan_details",
-        uniqueConstraints = @UniqueConstraint(
-                name = "uk_plan_details_plan_version",
-                columnNames = {"plan_id", "version"}
-        )
+        name = "tiers",
+        uniqueConstraints = @UniqueConstraint(name = "uk_tier_code", columnNames = "code")
 )
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class PlanDetails {
+public class Tier {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "plan_id", nullable = false)
-    private Long planId;
+    @Column(nullable = false, length = 64)
+    private String code;
+
+    @Column(nullable = false, length = 128)
+    private String name;
+
+    @Column(length = 512)
+    private String description;
 
     @Column(nullable = false)
-    private Integer version;
+    private Integer rank;
 
-    @Column(nullable = false)
-    private Integer durationDays;
+    @Column(name = "min_orders")
+    private Integer minOrders;
 
-    @Column(nullable = false, precision = 12, scale = 2)
-    private BigDecimal price;
+    @Column(name = "min_monthly_order_value", precision = 12, scale = 2)
+    private BigDecimal minMonthlyOrderValue;
 
-    @Builder.Default
-    @Column(nullable = false, length = 3)
-    private String currency = "INR";
+    @Column(name = "cohort_code", length = 64)
+    private String cohortCode;
 
     @Builder.Default
     @Column(nullable = false)
     private boolean freeDeliveryEnabled = false;
 
-    @Column(precision = 5, scale = 2)
+    @Column(name = "extra_discount_percent", precision = 5, scale = 2)
     private BigDecimal extraDiscountPercent;
 
     @Builder.Default
@@ -76,23 +74,9 @@ public class PlanDetails {
     @Column(nullable = false)
     private boolean prioritySupport = false;
 
-    @Column(name = "effective_from", nullable = false)
-    private LocalDateTime effectiveFrom;
-
-    @Column(name = "effective_to")
-    private LocalDateTime effectiveTo;
-
     @Builder.Default
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 32)
-    private PlanDetailsStatus status = PlanDetailsStatus.DRAFT;
-
-    @Builder.Default
-    @Column(name = "is_default", nullable = false)
-    private boolean isDefault = false;
-
-    @Column(length = 512)
-    private String changeNotes;
+    @Column(nullable = false)
+    private boolean active = true;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
