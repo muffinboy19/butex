@@ -33,6 +33,11 @@ public class GlobalExceptionHandler {
         return ControllerHelper.sendErrorResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
+    @ExceptionHandler(LockException.class)
+    public ResponseEntity<ApiResponse> handleLock(LockException ex) {
+        return ControllerHelper.sendErrorResponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse> handleValidation(MethodArgumentNotValidException ex) {
         Map<String, String> errors = new LinkedHashMap<>();

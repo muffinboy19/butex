@@ -59,7 +59,7 @@ Built as part of a backend task — repo name **butex** is intentional.
 - Partial DB unique index — one `ACTIVE` subscription per user
 - Swagger UI for API exploration
 - Integration tests for core membership flows
-- **Redis distributed locks** for concurrency on subscription mutations and scheduled jobs
+- **Redis distributed locks** on scheduled cron jobs (multi-instance safe)
 - PostgreSQL on **Neon** for cloud DB (local profile for dev, prod profile for hosting)
 
 ---
@@ -131,6 +131,9 @@ spring.datasource.url=jdbc:postgresql://<your-neon-host>/neondb?sslmode=require
 spring.datasource.username=<username>
 spring.datasource.password=<password>
 spring.datasource.driver-class-name=org.postgresql.Driver
+
+# optional — defaults to Render Redis if omitted
+spring.data.redis.url=redis://red-d2tub8buibrs73f57f1g:6379
 ```
 
 2. Start the app:
@@ -168,6 +171,7 @@ docker run -p 8080:8080 \
   -e SPRING_DATASOURCE_URL="jdbc:postgresql://...?sslmode=require" \
   -e SPRING_DATASOURCE_USERNAME=neondb_owner \
   -e SPRING_DATASOURCE_PASSWORD=your_password \
+  -e REDIS_URL="redis://red-d2tub8buibrs73f57f1g:6379" \
   butex
 ```
 
@@ -203,17 +207,7 @@ Demo seed data (users, plans, tiers, subscriptions, etc.) lives in the Neon DB �
 
 Both jobs are always enabled. Change schedules in `Constants.java`.
 
-Each cron acquires a **Redis lock** before running so only one instance executes per minute window (safe when multiple app replicas are deployed):
-
-```java
-String key = Constants.SUBSCRIPTION_EXPIRY_LOCK_PREFIX + LocalDateTime.now().truncatedTo(ChronoUnit.MINUTES);
-distributedLockService.getLockOnKey(key);
-try {
-    subscriptionExpiryService.expireOverdueSubscriptions();
-} finally {
-    distributedLockService.releaseLockOnKey(key);
-}
-```
+Each cron uses `LockService.runWithLock(...)` so only one instance runs per minute window when multiple replicas are deployed.
 
 Tier promotion reads order data from `user_orders`. Users can have an optional `cohort_code` for cohort-based tiers.
 
@@ -227,11 +221,10 @@ Override with env var `REDIS_URL` in prod or add to `application-local.propertie
 
 | Lock key pattern | Used for |
 |------------------|----------|
-| `subscription-user:{userId}` | Subscribe, cancel, renew, change plan/tier, tier promotion per user |
-| `subscription-expiry-cron:{minute}` | Daily expiry job — one runner per schedule window |
-| `tier-promotion-cron:{minute}` | Daily tier promotion job — one runner per schedule window |
+| `subscription-expiry-cron:{minute}` | Daily expiry job |
+| `tier-promotion-cron:{minute}` | Daily tier promotion job |
 
-Locks use Redis `SET NX` with TTL and token-based release (`RedisLockService`). Integration tests use an in-memory lock provider (`butex.lock.provider=in-memory`) so Redis is not required for `./mvnw test`.
+`RedisLockService` mirrors the memcached `add` / `delete` pattern: `SET NX` with 120s TTL to acquire, `delete` to release. Integration tests use in-memory locks (`butex.lock.provider=in-memory`).
 
 ---
 
@@ -241,7 +234,7 @@ Locks use Redis `SET NX` with TTL and token-based release (`RedisLockService`). 
 src/main/java/com/example/butex/
 ├── controller/     # REST APIs
 ├── scheduler/      # SchedulerService — all cron jobs
-├── service/           # Business logic
+├── service/        # Business logic
 ├── repository/     # DB access
 ├── entity/         # JPA models
 ├── dto/            # Request & response objects
