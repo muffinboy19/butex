@@ -37,3 +37,7 @@ build/
 
 ### H2 database files ###
 data/
+
+### Local secrets (Neon DB credentials) ###
+application-local.properties
+src/main/resources/application-local.properties
