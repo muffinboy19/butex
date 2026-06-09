@@ -15,7 +15,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDateTime;
 
@@ -26,10 +25,9 @@ import java.time.LocalDateTime;
 )
 @Getter
 @Setter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Slf4j
 public class Plan {
 
     @Id
@@ -60,12 +58,10 @@ public class Plan {
         LocalDateTime now = LocalDateTime.now();
         createdAt = now;
         updatedAt = now;
-        log.debug("Created plan code={}", code);
     }
 
     @PreUpdate
     void onUpdate() {
         updatedAt = LocalDateTime.now();
-        log.debug("Updated plan id={}", id);
     }
 }

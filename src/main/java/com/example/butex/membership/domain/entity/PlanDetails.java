@@ -36,7 +36,7 @@ import java.time.LocalDateTime;
 )
 @Getter
 @Setter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @Slf4j
