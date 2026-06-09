@@ -112,6 +112,27 @@ public class SubscriptionService {
             throw new BusinessException("User is already on this tier details version");
         }
 
+        applyTierChange(subscription, newTierDetails, currentTier, newTier, "system");
+        log.info("User {} changed tier on subscriptionId={}", userId, subscription.getId());
+        return toResponse(subscription);
+    }
+
+    @Transactional
+    public synchronized boolean promoteToTier(Subscription subscription, TierDetails newTierDetails,
+                                              Tier currentTier, Tier newTier, String actionBy) {
+        if (newTier.getRank() <= currentTier.getRank()) {
+            return false;
+        }
+        TierDetails currentTierDetails = catalogService.findTierDetails(subscription.getTierDetailsId());
+        if (currentTierDetails.getId().equals(newTierDetails.getId())) {
+            return false;
+        }
+        applyTierChange(subscription, newTierDetails, currentTier, newTier, actionBy);
+        return true;
+    }
+
+    private void applyTierChange(Subscription subscription, TierDetails newTierDetails,
+                                 Tier currentTier, Tier newTier, String actionBy) {
         UserSubscriptionHistoryAction action;
         if (newTier.getRank() > currentTier.getRank()) {
             action = UserSubscriptionHistoryAction.TIER_UPGRADED;
@@ -122,11 +143,9 @@ public class SubscriptionService {
         }
 
         subscription.setTierDetailsId(newTierDetails.getId());
-        Subscription saved = subscriptionRepository.save(subscription);
-        saveHistory(userId, saved.getId(), action,
-                "Tier changed from " + currentTier.getCode() + " to " + newTier.getCode(), "system");
-        log.info("User {} changed tier on subscriptionId={}", userId, saved.getId());
-        return toResponse(saved);
+        subscriptionRepository.save(subscription);
+        saveHistory(subscription.getUserId(), subscription.getId(), action,
+                "Tier changed from " + currentTier.getCode() + " to " + newTier.getCode(), actionBy);
     }
 
     private Subscription getActiveSubscriptionOrThrow(Long userId) {

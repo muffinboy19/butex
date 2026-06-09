@@ -49,6 +49,9 @@ public class User {
     @Column(nullable = false)
     private boolean active = true;
 
+    @Column(name = "cohort_code", length = 64)
+    private String cohortCode;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
