@@ -39,8 +39,8 @@ public class Subscription {
     @Column(name = "plan_details_id", nullable = false)
     private Long planDetailsId;
 
-    @Column(name = "tier_id", nullable = false)
-    private Long tierId;
+    @Column(name = "tier_details_id", nullable = false)
+    private Long tierDetailsId;
 
     @Column(name = "starts_at", nullable = false)
     private LocalDateTime startsAt;

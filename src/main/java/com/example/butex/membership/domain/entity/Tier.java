@@ -15,7 +15,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -45,34 +44,6 @@ public class Tier {
 
     @Column(nullable = false)
     private Integer rank;
-
-    @Column(name = "min_orders")
-    private Integer minOrders;
-
-    @Column(name = "min_monthly_order_value", precision = 12, scale = 2)
-    private BigDecimal minMonthlyOrderValue;
-
-    @Column(name = "cohort_code", length = 64)
-    private String cohortCode;
-
-    @Builder.Default
-    @Column(nullable = false)
-    private boolean freeDeliveryEnabled = false;
-
-    @Column(name = "extra_discount_percent", precision = 5, scale = 2)
-    private BigDecimal extraDiscountPercent;
-
-    @Builder.Default
-    @Column(nullable = false)
-    private boolean exclusiveDealsAccess = false;
-
-    @Builder.Default
-    @Column(nullable = false)
-    private boolean earlySaleAccess = false;
-
-    @Builder.Default
-    @Column(nullable = false)
-    private boolean prioritySupport = false;
 
     @Builder.Default
     @Column(nullable = false)

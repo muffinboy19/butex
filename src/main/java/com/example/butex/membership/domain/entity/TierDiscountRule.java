@@ -23,7 +23,7 @@ import java.math.BigDecimal;
         name = "tier_discount_rules",
         uniqueConstraints = @UniqueConstraint(
                 name = "uk_tier_discount_rule_target",
-                columnNames = {"tier_id", "target_type", "target_id"}
+                columnNames = {"tier_details_id", "target_type", "target_id"}
         )
 )
 @Getter
@@ -37,8 +37,8 @@ public class TierDiscountRule {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "tier_id", nullable = false)
-    private Long tierId;
+    @Column(name = "tier_details_id", nullable = false)
+    private Long tierDetailsId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "target_type", nullable = false, length = 32)
