@@ -1,5 +1,9 @@
 # Butex — FirstClub Membership Backend
 
+![Repository Visitors](https://visitor-badge.laobi.icu/badge?page_id=muffinboy19.butex)
+
+
+
 A Spring Boot backend for FirstClub’s membership program. Users can pick a plan, choose a tier, subscribe, change tier, cancel, and track their membership.
 
 Built as part of a backend task — repo name **butex** is intentional.
