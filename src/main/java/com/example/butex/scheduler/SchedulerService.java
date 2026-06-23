@@ -24,18 +24,24 @@ public class SchedulerService {
     @Scheduled(cron = Constants.SUBSCRIPTION_EXPIRY_CRON)
     public void expireSubscriptions() {
         String key = Constants.SUBSCRIPTION_EXPIRY_LOCK_PREFIX + LocalDateTime.now().truncatedTo(ChronoUnit.MINUTES);
-        lockService.runWithLock(key, () -> {
+        lockService.getLockOnKey(key);
+        try {
             log.info("Starting scheduled subscription expiry job");
             subscriptionExpiryService.expireOverdueSubscriptions();
-        });
+        } finally {
+            lockService.releaseLockOnKey(key);
+        }
     }
 
     @Scheduled(cron = Constants.TIER_PROMOTION_CRON)
     public void promoteEligibleUsers() {
         String key = Constants.TIER_PROMOTION_LOCK_PREFIX + LocalDateTime.now().truncatedTo(ChronoUnit.MINUTES);
-        lockService.runWithLock(key, () -> {
+        lockService.getLockOnKey(key);
+        try {
             log.info("Starting scheduled tier promotion job");
             tierEvaluationService.evaluateAndPromoteEligibleUsers();
-        });
+        } finally {
+            lockService.releaseLockOnKey(key);
+        }
     }
 }

@@ -2,19 +2,27 @@ package com.example.butex.service;
 
 import com.example.butex.entity.Plan;
 import com.example.butex.entity.PlanDetails;
+import com.example.butex.entity.PlanDetailsHistory;
 import com.example.butex.entity.Tier;
 import com.example.butex.entity.TierDetails;
+import com.example.butex.entity.TierDetailsHistory;
 import com.example.butex.enums.PlanDetailsStatus;
+import com.example.butex.enums.PlanDetailsHistoryAction;
+import com.example.butex.enums.TierDetailsHistoryAction;
 import com.example.butex.dto.request.CreatePlanDetailsRequest;
 import com.example.butex.dto.request.CreateTierDetailsRequest;
+import com.example.butex.dto.request.UpdatePlanDetailsRequest;
+import com.example.butex.dto.request.UpdateTierDetailsRequest;
 import com.example.butex.dto.response.PlanDetailsResponse;
 import com.example.butex.dto.response.PlanResponse;
 import com.example.butex.dto.response.TierDetailsResponse;
 import com.example.butex.dto.response.TierResponse;
 import com.example.butex.exception.BusinessException;
 import com.example.butex.exception.ResourceNotFoundException;
+import com.example.butex.repository.PlanDetailsHistoryRepository;
 import com.example.butex.repository.PlanDetailsRepository;
 import com.example.butex.repository.PlanRepository;
+import com.example.butex.repository.TierDetailsHistoryRepository;
 import com.example.butex.repository.TierDetailsRepository;
 import com.example.butex.repository.TierRepository;
 import com.example.butex.util.Constants;
@@ -35,8 +43,10 @@ public class MembershipService {
 
     private final PlanRepository planRepository;
     private final PlanDetailsRepository planDetailsRepository;
+    private final PlanDetailsHistoryRepository planDetailsHistoryRepository;
     private final TierRepository tierRepository;
     private final TierDetailsRepository tierDetailsRepository;
+    private final TierDetailsHistoryRepository tierDetailsHistoryRepository;
 
     @Transactional(readOnly = true)
     @Cacheable(cacheNames = Constants.CACHE_MEMBERSHIP_PLANS)
@@ -87,6 +97,11 @@ public class MembershipService {
         markAsDefaultPlanDetails(planId, saved.getId());
         saved = planDetailsRepository.findById(saved.getId()).orElseThrow();
 
+        String remark = request.getChangeNotes() != null
+                ? request.getChangeNotes()
+                : "Created plan details version " + nextVersion;
+        savePlanDetailsHistory(saved.getId(), PlanDetailsHistoryAction.CREATED, remark);
+
         log.info("Created plan details id={} for planId={} version={} as default",
                 saved.getId(), planId, nextVersion);
         return toPlanDetailsResponse(saved);
@@ -122,8 +137,107 @@ public class MembershipService {
         markAsDefaultTierDetails(tierId, saved.getId());
         saved = tierDetailsRepository.findById(saved.getId()).orElseThrow();
 
+        String remark = request.getChangeNotes() != null
+                ? request.getChangeNotes()
+                : "Created tier details version " + nextVersion;
+        saveTierDetailsHistory(saved.getId(), TierDetailsHistoryAction.CREATED, remark);
+
         log.info("Created tier details id={} for tierId={} version={} as default",
                 saved.getId(), tierId, nextVersion);
+        return toTierDetailsResponse(saved);
+    }
+
+    @Transactional
+    @CacheEvict(cacheNames = Constants.CACHE_MEMBERSHIP_PLANS, allEntries = true)
+    public PlanDetailsResponse updatePlanDetails(Long planId, Long detailsId, UpdatePlanDetailsRequest request) {
+        planRepository.findById(planId)
+                .orElseThrow(() -> new ResourceNotFoundException("Plan not found: " + planId));
+
+        PlanDetails details = findPlanDetails(detailsId);
+        if (!details.getPlanId().equals(planId)) {
+            throw new BusinessException("Plan details does not belong to plan: " + planId);
+        }
+
+        if (!applyPlanDetailsUpdates(details, request)) {
+            throw new BusinessException("No fields to update");
+        }
+
+        PlanDetails saved = planDetailsRepository.save(details);
+        savePlanDetailsHistory(saved.getId(), PlanDetailsHistoryAction.MODIFIED,
+                request.getChangeNotes() != null ? request.getChangeNotes() : "Plan details updated");
+
+        log.info("Updated plan details id={} for planId={} version={}", saved.getId(), planId, saved.getVersion());
+        return toPlanDetailsResponse(saved);
+    }
+
+    @Transactional
+    public TierDetailsResponse updateTierDetails(Long tierId, Long detailsId, UpdateTierDetailsRequest request) {
+        tierRepository.findById(tierId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tier not found: " + tierId));
+
+        TierDetails details = findTierDetails(detailsId);
+        if (!details.getTierId().equals(tierId)) {
+            throw new BusinessException("Tier details does not belong to tier: " + tierId);
+        }
+
+        if (!applyTierDetailsUpdates(details, request)) {
+            throw new BusinessException("No fields to update");
+        }
+
+        TierDetails saved = tierDetailsRepository.save(details);
+        saveTierDetailsHistory(saved.getId(), TierDetailsHistoryAction.MODIFIED,
+                request.getChangeNotes() != null ? request.getChangeNotes() : "Tier details updated");
+
+        log.info("Updated tier details id={} for tierId={} version={}", saved.getId(), tierId, saved.getVersion());
+        return toTierDetailsResponse(saved);
+    }
+
+    @Transactional
+    @CacheEvict(cacheNames = Constants.CACHE_MEMBERSHIP_PLANS, allEntries = true)
+    public PlanDetailsResponse deactivatePlanDetails(Long planId, Long detailsId) {
+        planRepository.findById(planId)
+                .orElseThrow(() -> new ResourceNotFoundException("Plan not found: " + planId));
+
+        PlanDetails details = findPlanDetails(detailsId);
+        if (!details.getPlanId().equals(planId)) {
+            throw new BusinessException("Plan details does not belong to plan: " + planId);
+        }
+        if (details.isDefault()) {
+            throw new BusinessException("Cannot deactivate default plan details");
+        }
+        if (details.getStatus() == PlanDetailsStatus.INACTIVE) {
+            throw new BusinessException("Plan details is already inactive");
+        }
+
+        details.setStatus(PlanDetailsStatus.INACTIVE);
+        PlanDetails saved = planDetailsRepository.save(details);
+        savePlanDetailsHistory(saved.getId(), PlanDetailsHistoryAction.DELETED, "Plan details deactivated");
+
+        log.info("Deactivated plan details id={} for planId={} version={}", saved.getId(), planId, saved.getVersion());
+        return toPlanDetailsResponse(saved);
+    }
+
+    @Transactional
+    public TierDetailsResponse deactivateTierDetails(Long tierId, Long detailsId) {
+        tierRepository.findById(tierId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tier not found: " + tierId));
+
+        TierDetails details = findTierDetails(detailsId);
+        if (!details.getTierId().equals(tierId)) {
+            throw new BusinessException("Tier details does not belong to tier: " + tierId);
+        }
+        if (details.isDefault()) {
+            throw new BusinessException("Cannot deactivate default tier details");
+        }
+        if (details.getStatus() == PlanDetailsStatus.INACTIVE) {
+            throw new BusinessException("Tier details is already inactive");
+        }
+
+        details.setStatus(PlanDetailsStatus.INACTIVE);
+        TierDetails saved = tierDetailsRepository.save(details);
+        saveTierDetailsHistory(saved.getId(), TierDetailsHistoryAction.DELETED, "Tier details deactivated");
+
+        log.info("Deactivated tier details id={} for tierId={} version={}", saved.getId(), tierId, saved.getVersion());
         return toTierDetailsResponse(saved);
     }
 
@@ -275,5 +389,121 @@ public class MembershipService {
             details.setDefault(details.getId().equals(tierDetailsId));
             tierDetailsRepository.save(details);
         });
+    }
+
+    private boolean applyPlanDetailsUpdates(PlanDetails details, UpdatePlanDetailsRequest request) {
+        boolean changed = false;
+        if (request.getDurationDays() != null) {
+            details.setDurationDays(request.getDurationDays());
+            changed = true;
+        }
+        if (request.getPrice() != null) {
+            details.setPrice(request.getPrice());
+            changed = true;
+        }
+        if (request.getCurrency() != null) {
+            details.setCurrency(request.getCurrency());
+            changed = true;
+        }
+        if (request.getFreeDeliveryEnabled() != null) {
+            details.setFreeDeliveryEnabled(request.getFreeDeliveryEnabled());
+            changed = true;
+        }
+        if (request.getExtraDiscountPercent() != null) {
+            details.setExtraDiscountPercent(request.getExtraDiscountPercent());
+            changed = true;
+        }
+        if (request.getExclusiveDealsAccess() != null) {
+            details.setExclusiveDealsAccess(request.getExclusiveDealsAccess());
+            changed = true;
+        }
+        if (request.getEarlySaleAccess() != null) {
+            details.setEarlySaleAccess(request.getEarlySaleAccess());
+            changed = true;
+        }
+        if (request.getPrioritySupport() != null) {
+            details.setPrioritySupport(request.getPrioritySupport());
+            changed = true;
+        }
+        if (request.getEffectiveFrom() != null) {
+            details.setEffectiveFrom(request.getEffectiveFrom());
+            changed = true;
+        }
+        if (request.getEffectiveTo() != null) {
+            details.setEffectiveTo(request.getEffectiveTo());
+            changed = true;
+        }
+        if (request.getChangeNotes() != null) {
+            details.setChangeNotes(request.getChangeNotes());
+            changed = true;
+        }
+        return changed;
+    }
+
+    private boolean applyTierDetailsUpdates(TierDetails details, UpdateTierDetailsRequest request) {
+        boolean changed = false;
+        if (request.getMinOrders() != null) {
+            details.setMinOrders(request.getMinOrders());
+            changed = true;
+        }
+        if (request.getMinMonthlyOrderValue() != null) {
+            details.setMinMonthlyOrderValue(request.getMinMonthlyOrderValue());
+            changed = true;
+        }
+        if (request.getCohortCode() != null) {
+            details.setCohortCode(request.getCohortCode());
+            changed = true;
+        }
+        if (request.getFreeDeliveryEnabled() != null) {
+            details.setFreeDeliveryEnabled(request.getFreeDeliveryEnabled());
+            changed = true;
+        }
+        if (request.getExtraDiscountPercent() != null) {
+            details.setExtraDiscountPercent(request.getExtraDiscountPercent());
+            changed = true;
+        }
+        if (request.getExclusiveDealsAccess() != null) {
+            details.setExclusiveDealsAccess(request.getExclusiveDealsAccess());
+            changed = true;
+        }
+        if (request.getEarlySaleAccess() != null) {
+            details.setEarlySaleAccess(request.getEarlySaleAccess());
+            changed = true;
+        }
+        if (request.getPrioritySupport() != null) {
+            details.setPrioritySupport(request.getPrioritySupport());
+            changed = true;
+        }
+        if (request.getEffectiveFrom() != null) {
+            details.setEffectiveFrom(request.getEffectiveFrom());
+            changed = true;
+        }
+        if (request.getEffectiveTo() != null) {
+            details.setEffectiveTo(request.getEffectiveTo());
+            changed = true;
+        }
+        if (request.getChangeNotes() != null) {
+            details.setChangeNotes(request.getChangeNotes());
+            changed = true;
+        }
+        return changed;
+    }
+
+    private void savePlanDetailsHistory(Long planDetailsId, PlanDetailsHistoryAction action, String remark) {
+        planDetailsHistoryRepository.save(PlanDetailsHistory.builder()
+                .planDetailsId(planDetailsId)
+                .action(action)
+                .remark(remark)
+                .actionBy("system")
+                .build());
+    }
+
+    private void saveTierDetailsHistory(Long tierDetailsId, TierDetailsHistoryAction action, String remark) {
+        tierDetailsHistoryRepository.save(TierDetailsHistory.builder()
+                .tierDetailsId(tierDetailsId)
+                .action(action)
+                .remark(remark)
+                .actionBy("system")
+                .build());
     }
 }

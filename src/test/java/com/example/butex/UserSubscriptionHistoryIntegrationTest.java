@@ -1,5 +1,6 @@
 package com.example.butex;
 
+import com.example.butex.config.TestRedisConfig;
 import com.example.butex.entity.Subscription;
 import com.example.butex.entity.UserOrder;
 import com.example.butex.enums.SubscriptionStatus;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@Import(TestRedisConfig.class)
 class UserSubscriptionHistoryIntegrationTest {
 
     @Autowired

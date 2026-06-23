@@ -3,14 +3,12 @@ package com.example.butex.service.lock;
 import com.example.butex.exception.LockException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 
-@Component
-@ConditionalOnProperty(name = "butex.lock.provider", havingValue = "redis", matchIfMissing = true)
+@Service
 @RequiredArgsConstructor
 @Slf4j
 public class RedisLockService implements LockService {

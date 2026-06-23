@@ -1,11 +1,16 @@
 package com.example.butex;
 
+import com.example.butex.config.TestRedisConfig;
 import com.example.butex.entity.PlanDetails;
 import com.example.butex.entity.Subscription;
+import com.example.butex.enums.PlanDetailsHistoryAction;
 import com.example.butex.enums.PlanDetailsStatus;
 import com.example.butex.enums.SubscriptionStatus;
+import com.example.butex.enums.TierDetailsHistoryAction;
+import com.example.butex.repository.PlanDetailsHistoryRepository;
 import com.example.butex.repository.PlanDetailsRepository;
 import com.example.butex.repository.SubscriptionRepository;
+import com.example.butex.repository.TierDetailsHistoryRepository;
 import com.example.butex.repository.TierDetailsRepository;
 import com.example.butex.support.CatalogTestData;
 import com.example.butex.util.Constants;
@@ -17,6 +22,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.concurrent.ConcurrentMapCache;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -33,6 +40,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@Import(TestRedisConfig.class)
 class MembershipApiIntegrationTest {
 
     @Autowired
@@ -48,7 +56,13 @@ class MembershipApiIntegrationTest {
     private PlanDetailsRepository planDetailsRepository;
 
     @Autowired
+    private PlanDetailsHistoryRepository planDetailsHistoryRepository;
+
+    @Autowired
     private TierDetailsRepository tierDetailsRepository;
+
+    @Autowired
+    private TierDetailsHistoryRepository tierDetailsHistoryRepository;
 
     @Autowired
     private CacheManager cacheManager;
@@ -79,8 +93,128 @@ class MembershipApiIntegrationTest {
                 .andExpect(jsonPath("$.data.freeDeliveryEnabled").value(true))
                 .andExpect(jsonPath("$.data.default").value(true));
 
+        Long newDetailsId = planDetailsRepository.findByPlanId(planId).stream()
+                .filter(d -> d.getVersion() == 2)
+                .findFirst()
+                .orElseThrow()
+                .getId();
+        var history = planDetailsHistoryRepository.findByPlanDetailsIdOrderByActionAtDesc(newDetailsId);
+        assertThat(history).hasSize(1);
+        assertThat(history.get(0).getAction()).isEqualTo(PlanDetailsHistoryAction.CREATED);
+
         PlanDetails previousVersion = planDetailsRepository.findById(catalog.getPlanDetailsId()).orElseThrow();
         assertThat(previousVersion.isDefault()).isFalse();
+    }
+
+    @Test
+    void updatePlanDetailsChangesFieldsAndRecordsHistory() throws Exception {
+        Long planId = planDetailsRepository.findById(catalog.getPlanDetailsId()).orElseThrow().getPlanId();
+
+        mockMvc.perform(put("/api/v1/membership/plans/{planId}/details/{detailsId}", planId, catalog.getPlanDetailsId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "extraDiscountPercent": 10.0,
+                                  "changeNotes": "Corrected discount from 5% to 10%"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.extraDiscountPercent").value(10.0))
+                .andExpect(jsonPath("$.data.version").value(1));
+
+        PlanDetails updated = planDetailsRepository.findById(catalog.getPlanDetailsId()).orElseThrow();
+        assertThat(updated.getExtraDiscountPercent()).isEqualByComparingTo("10.0");
+
+        var history = planDetailsHistoryRepository.findByPlanDetailsIdOrderByActionAtDesc(catalog.getPlanDetailsId());
+        assertThat(history).hasSize(1);
+        assertThat(history.get(0).getAction()).isEqualTo(PlanDetailsHistoryAction.MODIFIED);
+        assertThat(history.get(0).getRemark()).isEqualTo("Corrected discount from 5% to 10%");
+    }
+
+    @Test
+    void updatePlanDetailsWorksForNonDefaultVersion() throws Exception {
+        Long planId = planDetailsRepository.findById(catalog.getPlanDetailsId()).orElseThrow().getPlanId();
+
+        mockMvc.perform(post("/api/v1/membership/plans/{planId}/details", planId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"durationDays": 30, "price": 349.00}
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(put("/api/v1/membership/plans/{planId}/details/{detailsId}", planId, catalog.getPlanDetailsId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"price": 279.00}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.price").value(279.00))
+                .andExpect(jsonPath("$.data.default").value(false));
+    }
+
+    @Test
+    void updateTierDetailsChangesFieldsAndRecordsHistory() throws Exception {
+        Long tierId = tierDetailsRepository.findById(catalog.getSilverTierDetailsId()).orElseThrow().getTierId();
+
+        mockMvc.perform(put("/api/v1/membership/tiers/{tierId}/details/{detailsId}",
+                        tierId, catalog.getSilverTierDetailsId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "extraDiscountPercent": 8.0,
+                                  "changeNotes": "Tier discount hotfix"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.extraDiscountPercent").value(8.0));
+
+        var history = tierDetailsHistoryRepository
+                .findByTierDetailsIdOrderByActionAtDesc(catalog.getSilverTierDetailsId());
+        assertThat(history).hasSize(1);
+        assertThat(history.get(0).getAction()).isEqualTo(TierDetailsHistoryAction.MODIFIED);
+    }
+
+    @Test
+    void deactivatePlanDetailsSetsInactiveAndRecordsHistory() throws Exception {
+        Long planId = planDetailsRepository.findById(catalog.getPlanDetailsId()).orElseThrow().getPlanId();
+
+        mockMvc.perform(post("/api/v1/membership/plans/{planId}/details", planId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"durationDays": 30, "price": 349.00}
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(delete("/api/v1/membership/plans/{planId}/details/{detailsId}",
+                        planId, catalog.getPlanDetailsId()))
+                .andExpect(status().isOk());
+
+        PlanDetails deactivated = planDetailsRepository.findById(catalog.getPlanDetailsId()).orElseThrow();
+        assertThat(deactivated.getStatus()).isEqualTo(PlanDetailsStatus.INACTIVE);
+
+        var history = planDetailsHistoryRepository.findByPlanDetailsIdOrderByActionAtDesc(catalog.getPlanDetailsId());
+        assertThat(history).hasSize(1);
+        assertThat(history.get(0).getAction()).isEqualTo(PlanDetailsHistoryAction.DELETED);
+    }
+
+    @Test
+    void deactivateDefaultPlanDetailsReturnsError() throws Exception {
+        Long planId = planDetailsRepository.findById(catalog.getPlanDetailsId()).orElseThrow().getPlanId();
+
+        mockMvc.perform(delete("/api/v1/membership/plans/{planId}/details/{detailsId}",
+                        planId, catalog.getPlanDetailsId()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Cannot deactivate default plan details"));
+    }
+
+    @Test
+    void deactivateDefaultTierDetailsReturnsError() throws Exception {
+        Long tierId = tierDetailsRepository.findById(catalog.getSilverTierDetailsId()).orElseThrow().getTierId();
+
+        mockMvc.perform(delete("/api/v1/membership/tiers/{tierId}/details/{detailsId}",
+                        tierId, catalog.getSilverTierDetailsId()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Cannot deactivate default tier details"));
     }
 
     @Test
