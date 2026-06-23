@@ -1,8 +1,12 @@
 package com.example.butex;
 
+import com.example.butex.entity.PlanDetails;
 import com.example.butex.entity.Subscription;
+import com.example.butex.enums.PlanDetailsStatus;
 import com.example.butex.enums.SubscriptionStatus;
+import com.example.butex.repository.PlanDetailsRepository;
 import com.example.butex.repository.SubscriptionRepository;
+import com.example.butex.repository.TierDetailsRepository;
 import com.example.butex.support.CatalogTestData;
 import com.example.butex.util.Constants;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +45,12 @@ class MembershipApiIntegrationTest {
     private SubscriptionRepository subscriptionRepository;
 
     @Autowired
+    private PlanDetailsRepository planDetailsRepository;
+
+    @Autowired
+    private TierDetailsRepository tierDetailsRepository;
+
+    @Autowired
     private CacheManager cacheManager;
 
     private CatalogTestData.SeededCatalog catalog;
@@ -48,6 +58,101 @@ class MembershipApiIntegrationTest {
     @BeforeEach
     void setUp() {
         catalog = catalogTestData.seed();
+    }
+
+    @Test
+    void createPlanDetailsAddsNewVersion() throws Exception {
+        Long planId = planDetailsRepository.findById(catalog.getPlanDetailsId()).orElseThrow().getPlanId();
+
+        mockMvc.perform(post("/api/v1/membership/plans/{planId}/details", planId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "durationDays": 30,
+                                  "price": 349.00,
+                                  "freeDeliveryEnabled": true
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.version").value(2))
+                .andExpect(jsonPath("$.data.price").value(349.00))
+                .andExpect(jsonPath("$.data.freeDeliveryEnabled").value(true))
+                .andExpect(jsonPath("$.data.default").value(true));
+
+        PlanDetails previousVersion = planDetailsRepository.findById(catalog.getPlanDetailsId()).orElseThrow();
+        assertThat(previousVersion.isDefault()).isFalse();
+    }
+
+    @Test
+    void createTierDetailsAddsNewVersion() throws Exception {
+        Long tierId = tierDetailsRepository.findById(catalog.getSilverTierDetailsId()).orElseThrow().getTierId();
+
+        mockMvc.perform(post("/api/v1/membership/tiers/{tierId}/details", tierId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "minOrders": 0,
+                                  "minMonthlyOrderValue": 0,
+                                  "effectiveFrom": "2026-06-24T00:00:00",
+                                  "extraDiscountPercent": 7.5
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.version").value(2))
+                .andExpect(jsonPath("$.data.extraDiscountPercent").value(7.5))
+                .andExpect(jsonPath("$.data.default").value(true));
+    }
+
+    @Test
+    void renewSubscriptionRollsToDefaultPlanVersion() throws Exception {
+        saveActiveSubscription();
+        Long planId = planDetailsRepository.findById(catalog.getPlanDetailsId()).orElseThrow().getPlanId();
+
+        mockMvc.perform(post("/api/v1/membership/plans/{planId}/details", planId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"durationDays": 30, "price": 399.00}
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/users/{userId}/subscriptions/renew", catalog.getUserId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.subStatus").value("RENEWED"));
+
+        Long defaultPlanDetailsId = planDetailsRepository
+                .findByPlanIdAndStatusAndIsDefaultTrue(planId, PlanDetailsStatus.ACTIVE)
+                .orElseThrow()
+                .getId();
+
+        mockMvc.perform(get("/api/v1/users/{userId}/subscriptions/current", catalog.getUserId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.planDetailsId").value(defaultPlanDetailsId.intValue()));
+    }
+
+    @Test
+    void subscribeUsesDefaultPlanDetailsEvenWhenOlderIdRequested() throws Exception {
+        Long planId = planDetailsRepository.findById(catalog.getPlanDetailsId()).orElseThrow().getPlanId();
+        Long oldPlanDetailsId = catalog.getPlanDetailsId();
+
+        mockMvc.perform(post("/api/v1/membership/plans/{planId}/details", planId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"durationDays": 30, "price": 319.00}
+                                """))
+                .andExpect(status().isOk());
+
+        Long defaultPlanDetailsId = planDetailsRepository
+                .findByPlanIdAndStatusAndIsDefaultTrue(planId, PlanDetailsStatus.ACTIVE)
+                .orElseThrow()
+                .getId();
+
+        mockMvc.perform(post("/api/v1/users/{userId}/subscriptions", catalog.getUserId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"planDetailsId": %d, "tierDetailsId": %d}
+                                """.formatted(oldPlanDetailsId, catalog.getSilverTierDetailsId())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.planDetailsId").value(defaultPlanDetailsId.intValue()));
     }
 
     @Test
@@ -192,7 +297,7 @@ class MembershipApiIntegrationTest {
         mockMvc.perform(put("/api/v1/users/{userId}/subscriptions/plan", catalog.getUserId())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"planDetailsId": %d}
+                                {"newPlanDetailsId": %d}
                                 """.formatted(catalog.getAlternatePlanDetailsId())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.planCode").value("YEARLY"));
@@ -205,7 +310,7 @@ class MembershipApiIntegrationTest {
         mockMvc.perform(put("/api/v1/users/{userId}/subscriptions/tier", catalog.getUserId())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"tierDetailsId": %d}
+                                {"newTierDetailsId": %d}
                                 """.formatted(catalog.getGoldTierDetailsId())))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("User does not qualify for tier: GOLD"));

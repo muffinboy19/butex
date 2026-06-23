@@ -53,8 +53,10 @@ public class SubscriptionService {
                     throw new BusinessException("User already has an active subscription");
                 });
 
-        PlanDetails planDetails = membershipService.getActivePlanDetails(request.getPlanDetailsId());
-        TierDetails tierDetails = membershipService.getActiveTierDetails(request.getTierDetailsId());
+        PlanDetails requestedPlan = membershipService.getActivePlanDetails(request.getPlanDetailsId());
+        TierDetails requestedTier = membershipService.getActiveTierDetails(request.getTierDetailsId());
+        PlanDetails planDetails = membershipService.resolveDefaultActivePlanDetails(requestedPlan.getPlanId());
+        TierDetails tierDetails = membershipService.resolveDefaultActiveTierDetails(requestedTier.getTierId());
         tierEligibilityService.requireEligible(user, tierDetails);
 
         LocalDateTime startsAt = LocalDateTime.now();
@@ -110,7 +112,16 @@ public class SubscriptionService {
     @Transactional
     public SubscriptionResponse renewSubscription(Long userId) {
         Subscription subscription = getEffectivelyActiveSubscriptionOrThrow(userId);
-        PlanDetails planDetails = membershipService.getActivePlanDetails(subscription.getPlanDetailsId());
+        PlanDetails currentPlanDetails = membershipService.getActivePlanDetails(subscription.getPlanDetailsId());
+        PlanDetails planDetails = membershipService.resolveDefaultActivePlanDetails(currentPlanDetails.getPlanId());
+
+        TierDetails currentTierDetails = membershipService.getActiveTierDetails(subscription.getTierDetailsId());
+        TierDetails tierDetails = membershipService.resolveDefaultActiveTierDetails(currentTierDetails.getTierId());
+
+        boolean planVersionChanged = !planDetails.getId().equals(subscription.getPlanDetailsId());
+        boolean tierVersionChanged = !tierDetails.getId().equals(subscription.getTierDetailsId());
+        subscription.setPlanDetailsId(planDetails.getId());
+        subscription.setTierDetailsId(tierDetails.getId());
 
         LocalDateTime extensionStart = subscription.getExpiresAt().isAfter(LocalDateTime.now())
                 ? subscription.getExpiresAt()
@@ -119,21 +130,24 @@ public class SubscriptionService {
         subscription.setSubStatus(SubscriptionSubStatus.RENEWED);
         subscriptionRepository.save(subscription);
 
-        saveHistory(userId, subscription.getId(), UserSubscriptionHistoryAction.RENEWED,
-                "Membership renewed on " + planDetails.getDurationDays() + "-day plan", "system");
+        String remark = "Membership renewed on " + planDetails.getDurationDays() + "-day plan";
+        if (planVersionChanged || tierVersionChanged) {
+            remark += " (updated to current default plan/tier version)";
+        }
+        saveHistory(userId, subscription.getId(), UserSubscriptionHistoryAction.RENEWED, remark, "system");
         log.info("User {} renewed subscriptionId={}", userId, subscription.getId());
         return toResponse(subscription);
     }
 
     @Transactional
     public SubscriptionResponse changePlan(Long userId, ChangePlanRequest request) {
-        if (request.getPlanDetailsId() == null) {
-            throw new BusinessException("planDetailsId is required");
+        if (request.getNewPlanDetailsId() == null) {
+            throw new BusinessException("newPlanDetailsId is required");
         }
 
         Subscription subscription = getEffectivelyActiveSubscriptionOrThrow(userId);
         PlanDetails currentPlanDetails = membershipService.getActivePlanDetails(subscription.getPlanDetailsId());
-        PlanDetails newPlanDetails = membershipService.getActivePlanDetails(request.getPlanDetailsId());
+        PlanDetails newPlanDetails = membershipService.getActivePlanDetails(request.getNewPlanDetailsId());
 
         if (currentPlanDetails.getId().equals(newPlanDetails.getId())) {
             throw new BusinessException("User is already on this plan details version");
@@ -158,14 +172,14 @@ public class SubscriptionService {
 
     @Transactional
     public SubscriptionResponse changeTier(Long userId, ChangeTierRequest request) {
-        if (request.getTierDetailsId() == null) {
-            throw new BusinessException("tierDetailsId is required");
+        if (request.getNewTierDetailsId() == null) {
+            throw new BusinessException("newTierDetailsId is required");
         }
 
         var user = userService.findUser(userId);
         Subscription subscription = getEffectivelyActiveSubscriptionOrThrow(userId);
         TierDetails currentTierDetails = membershipService.getActiveTierDetails(subscription.getTierDetailsId());
-        TierDetails newTierDetails = membershipService.getActiveTierDetails(request.getTierDetailsId());
+        TierDetails newTierDetails = membershipService.getActiveTierDetails(request.getNewTierDetailsId());
         tierEligibilityService.requireEligible(user, newTierDetails);
 
         Tier currentTier = tierRepository.findById(currentTierDetails.getTierId())

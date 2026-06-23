@@ -1,4 +1,4 @@
-package com.example.butex.dto.response;
+package com.example.butex.helper;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,7 +11,7 @@ import lombok.Setter;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ApiResponse {
+public class ApiResponseHelper {
 
     private Boolean status;
     private String message;

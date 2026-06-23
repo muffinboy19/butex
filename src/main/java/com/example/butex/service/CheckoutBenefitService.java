@@ -1,7 +1,9 @@
 package com.example.butex.service;
 
 import com.example.butex.dto.request.CheckoutBenefitRequest;
+import com.example.butex.dto.request.CheckoutLineItemRequest;
 import com.example.butex.dto.response.CheckoutBenefitResponse;
+import com.example.butex.dto.response.LineItemBenefitResponse;
 import com.example.butex.entity.Plan;
 import com.example.butex.entity.PlanDetails;
 import com.example.butex.entity.PlanDiscountRule;
@@ -66,9 +68,9 @@ public class CheckoutBenefitService {
 
         BigDecimal cartSubtotal = BigDecimal.ZERO;
         BigDecimal totalDiscount = BigDecimal.ZERO;
-        List<CheckoutBenefitResponse.LineItemBenefit> lineBenefits = new ArrayList<>();
+        List<LineItemBenefitResponse> lineBenefits = new ArrayList<>();
 
-        for (CheckoutBenefitRequest.CheckoutLineItem item : request.getItems()) {
+        for (CheckoutLineItemRequest item : request.getItems()) {
             BigDecimal discountPercent = bestDiscountPercent(
                     planDetails, tierDetails, planRules, tierRules, item.getItemId(), item.getCategoryId());
             BigDecimal discountAmount = percentOf(item.getLineTotal(), discountPercent);
@@ -77,7 +79,7 @@ public class CheckoutBenefitService {
             cartSubtotal = cartSubtotal.add(item.getLineTotal());
             totalDiscount = totalDiscount.add(discountAmount);
 
-            lineBenefits.add(CheckoutBenefitResponse.LineItemBenefit.builder()
+            lineBenefits.add(LineItemBenefitResponse.builder()
                     .itemId(item.getItemId())
                     .categoryId(item.getCategoryId())
                     .lineTotal(item.getLineTotal())
@@ -104,11 +106,11 @@ public class CheckoutBenefitService {
 
     private CheckoutBenefitResponse noMembershipResponse(CheckoutBenefitRequest request) {
         BigDecimal cartSubtotal = request.getItems().stream()
-                .map(CheckoutBenefitRequest.CheckoutLineItem::getLineTotal)
+                .map(CheckoutLineItemRequest::getLineTotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        List<CheckoutBenefitResponse.LineItemBenefit> lineBenefits = request.getItems().stream()
-                .map(item -> CheckoutBenefitResponse.LineItemBenefit.builder()
+        List<LineItemBenefitResponse> lineBenefits = request.getItems().stream()
+                .map(item -> LineItemBenefitResponse.builder()
                         .itemId(item.getItemId())
                         .categoryId(item.getCategoryId())
                         .lineTotal(item.getLineTotal())

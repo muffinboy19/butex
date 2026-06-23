@@ -20,16 +20,5 @@ public class CheckoutBenefitResponse {
     private BigDecimal cartSubtotal;
     private BigDecimal totalDiscountAmount;
     private BigDecimal finalPayableAmount;
-    private List<LineItemBenefit> items;
-
-    @Getter
-    @Builder
-    public static class LineItemBenefit {
-        private String itemId;
-        private String categoryId;
-        private BigDecimal lineTotal;
-        private BigDecimal appliedDiscountPercent;
-        private BigDecimal discountAmount;
-        private BigDecimal payableAmount;
-    }
+    private List<LineItemBenefitResponse> items;
 }

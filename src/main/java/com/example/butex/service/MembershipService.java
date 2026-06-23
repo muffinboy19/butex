@@ -5,6 +5,8 @@ import com.example.butex.entity.PlanDetails;
 import com.example.butex.entity.Tier;
 import com.example.butex.entity.TierDetails;
 import com.example.butex.enums.PlanDetailsStatus;
+import com.example.butex.dto.request.CreatePlanDetailsRequest;
+import com.example.butex.dto.request.CreateTierDetailsRequest;
 import com.example.butex.dto.response.PlanDetailsResponse;
 import com.example.butex.dto.response.PlanResponse;
 import com.example.butex.dto.response.TierDetailsResponse;
@@ -18,6 +20,7 @@ import com.example.butex.repository.TierRepository;
 import com.example.butex.util.Constants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,6 +51,96 @@ public class MembershipService {
         return tierRepository.findByActiveTrueOrderByRankAsc().stream()
                 .map(this::toTierResponse)
                 .toList();
+    }
+
+    @Transactional
+    @CacheEvict(cacheNames = Constants.CACHE_MEMBERSHIP_PLANS, allEntries = true)
+    public PlanDetailsResponse createPlanDetails(Long planId, CreatePlanDetailsRequest request) {
+        Plan plan = planRepository.findById(planId)
+                .orElseThrow(() -> new ResourceNotFoundException("Plan not found: " + planId));
+        if (!plan.isActive()) {
+            throw new BusinessException("Plan is not active: " + plan.getCode());
+        }
+
+        int nextVersion = planDetailsRepository.findMaxVersionByPlanId(planId) + 1;
+        LocalDateTime effectiveFrom = request.getEffectiveFrom() != null
+                ? request.getEffectiveFrom()
+                : LocalDateTime.now();
+
+        PlanDetails saved = planDetailsRepository.save(PlanDetails.builder()
+                .planId(planId)
+                .version(nextVersion)
+                .durationDays(request.getDurationDays())
+                .price(request.getPrice())
+                .currency(request.getCurrency() != null ? request.getCurrency() : "INR")
+                .freeDeliveryEnabled(Boolean.TRUE.equals(request.getFreeDeliveryEnabled()))
+                .extraDiscountPercent(request.getExtraDiscountPercent())
+                .exclusiveDealsAccess(Boolean.TRUE.equals(request.getExclusiveDealsAccess()))
+                .earlySaleAccess(Boolean.TRUE.equals(request.getEarlySaleAccess()))
+                .prioritySupport(Boolean.TRUE.equals(request.getPrioritySupport()))
+                .effectiveFrom(effectiveFrom)
+                .effectiveTo(request.getEffectiveTo())
+                .status(PlanDetailsStatus.ACTIVE)
+                .changeNotes(request.getChangeNotes())
+                .build());
+
+        markAsDefaultPlanDetails(planId, saved.getId());
+        saved = planDetailsRepository.findById(saved.getId()).orElseThrow();
+
+        log.info("Created plan details id={} for planId={} version={} as default",
+                saved.getId(), planId, nextVersion);
+        return toPlanDetailsResponse(saved);
+    }
+
+    @Transactional
+    public TierDetailsResponse createTierDetails(Long tierId, CreateTierDetailsRequest request) {
+        Tier tier = tierRepository.findById(tierId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tier not found: " + tierId));
+        if (!tier.isActive()) {
+            throw new BusinessException("Tier is not active: " + tier.getCode());
+        }
+
+        int nextVersion = tierDetailsRepository.findMaxVersionByTierId(tierId) + 1;
+
+        TierDetails saved = tierDetailsRepository.save(TierDetails.builder()
+                .tierId(tierId)
+                .version(nextVersion)
+                .minOrders(request.getMinOrders())
+                .minMonthlyOrderValue(request.getMinMonthlyOrderValue())
+                .cohortCode(request.getCohortCode())
+                .freeDeliveryEnabled(Boolean.TRUE.equals(request.getFreeDeliveryEnabled()))
+                .extraDiscountPercent(request.getExtraDiscountPercent())
+                .exclusiveDealsAccess(Boolean.TRUE.equals(request.getExclusiveDealsAccess()))
+                .earlySaleAccess(Boolean.TRUE.equals(request.getEarlySaleAccess()))
+                .prioritySupport(Boolean.TRUE.equals(request.getPrioritySupport()))
+                .effectiveFrom(request.getEffectiveFrom())
+                .effectiveTo(request.getEffectiveTo())
+                .status(PlanDetailsStatus.ACTIVE)
+                .changeNotes(request.getChangeNotes())
+                .build());
+
+        markAsDefaultTierDetails(tierId, saved.getId());
+        saved = tierDetailsRepository.findById(saved.getId()).orElseThrow();
+
+        log.info("Created tier details id={} for tierId={} version={} as default",
+                saved.getId(), tierId, nextVersion);
+        return toTierDetailsResponse(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public PlanDetails resolveDefaultActivePlanDetails(Long planId) {
+        return planDetailsRepository
+                .findByPlanIdAndStatusAndIsDefaultTrue(planId, PlanDetailsStatus.ACTIVE)
+                .filter(MembershipService::isEffectiveNow)
+                .orElseThrow(() -> new BusinessException("No default active plan details for plan: " + planId));
+    }
+
+    @Transactional(readOnly = true)
+    public TierDetails resolveDefaultActiveTierDetails(Long tierId) {
+        return tierDetailsRepository
+                .findByTierIdAndStatusAndIsDefaultTrue(tierId, PlanDetailsStatus.ACTIVE)
+                .filter(MembershipService::isEffectiveNow)
+                .orElseThrow(() -> new BusinessException("No default active tier details for tier: " + tierId));
     }
 
     @Transactional(readOnly = true)
@@ -168,5 +261,19 @@ public class MembershipService {
                 .prioritySupport(details.isPrioritySupport())
                 .isDefault(details.isDefault())
                 .build();
+    }
+
+    private void markAsDefaultPlanDetails(Long planId, Long planDetailsId) {
+        planDetailsRepository.findByPlanId(planId).forEach(details -> {
+            details.setDefault(details.getId().equals(planDetailsId));
+            planDetailsRepository.save(details);
+        });
+    }
+
+    private void markAsDefaultTierDetails(Long tierId, Long tierDetailsId) {
+        tierDetailsRepository.findByTierId(tierId).forEach(details -> {
+            details.setDefault(details.getId().equals(tierDetailsId));
+            tierDetailsRepository.save(details);
+        });
     }
 }

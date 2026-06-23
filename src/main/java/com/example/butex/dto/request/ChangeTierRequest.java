@@ -8,6 +8,6 @@ import lombok.Setter;
 @Setter
 public class ChangeTierRequest {
 
-    @NotNull(message = "tierDetailsId is required")
-    private Long tierDetailsId;
+    @NotNull(message = "newTierDetailsId is required")
+    private Long newTierDetailsId;
 }

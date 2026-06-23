@@ -91,7 +91,7 @@ class UserSubscriptionHistoryIntegrationTest {
         mockMvc.perform(put("/api/v1/users/{userId}/subscriptions/plan", catalog.getUserId())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"planDetailsId": %d}
+                                {"newPlanDetailsId": %d}
                                 """.formatted(catalog.getAlternatePlanDetailsId())))
                 .andExpect(status().isOk());
 
@@ -108,7 +108,7 @@ class UserSubscriptionHistoryIntegrationTest {
         mockMvc.perform(put("/api/v1/users/{userId}/subscriptions/tier", catalog.getUserId())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"tierDetailsId": %d}
+                                {"newTierDetailsId": %d}
                                 """.formatted(catalog.getGoldTierDetailsId())))
                 .andExpect(status().isOk());
 
@@ -155,7 +155,7 @@ class UserSubscriptionHistoryIntegrationTest {
         mockMvc.perform(put("/api/v1/users/{userId}/subscriptions/plan", catalog.getUserId())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"planDetailsId": %d}
+                                {"newPlanDetailsId": %d}
                                 """.formatted(catalog.getAlternatePlanDetailsId())))
                 .andExpect(status().isOk());
 

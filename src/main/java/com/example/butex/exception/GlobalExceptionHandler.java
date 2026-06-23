@@ -1,7 +1,7 @@
 package com.example.butex.exception;
 
-import com.example.butex.controller.ControllerHelper;
-import com.example.butex.dto.response.ApiResponse;
+import com.example.butex.helper.ControllerHelper;
+import com.example.butex.helper.ApiResponseHelper;
 import com.example.butex.util.Constants;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -24,22 +24,22 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ApiResponse> handleNotFound(ResourceNotFoundException ex) {
+    public ResponseEntity<ApiResponseHelper> handleNotFound(ResourceNotFoundException ex) {
         return ControllerHelper.sendErrorResponse(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
     @ExceptionHandler({BusinessException.class, InvalidRequestException.class})
-    public ResponseEntity<ApiResponse> handleBusiness(RuntimeException ex) {
+    public ResponseEntity<ApiResponseHelper> handleBusiness(RuntimeException ex) {
         return ControllerHelper.sendErrorResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
     @ExceptionHandler(LockException.class)
-    public ResponseEntity<ApiResponse> handleLock(LockException ex) {
+    public ResponseEntity<ApiResponseHelper> handleLock(LockException ex) {
         return ControllerHelper.sendErrorResponse(HttpStatus.CONFLICT, ex.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse> handleValidation(MethodArgumentNotValidException ex) {
+    public ResponseEntity<ApiResponseHelper> handleValidation(MethodArgumentNotValidException ex) {
         Map<String, String> errors = new LinkedHashMap<>();
         for (FieldError fieldError : ex.getBindingResult().getFieldErrors()) {
             errors.put(fieldError.getField(), fieldError.getDefaultMessage());
@@ -48,34 +48,34 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<ApiResponse> handleMalformedBody(HttpMessageNotReadableException ex) {
+    public ResponseEntity<ApiResponseHelper> handleMalformedBody(HttpMessageNotReadableException ex) {
         return ControllerHelper.sendErrorResponse(HttpStatus.BAD_REQUEST, Constants.MALFORMED_REQUEST_MESSAGE);
     }
 
     @ExceptionHandler(MissingServletRequestParameterException.class)
-    public ResponseEntity<ApiResponse> handleMissingParam(MissingServletRequestParameterException ex) {
+    public ResponseEntity<ApiResponseHelper> handleMissingParam(MissingServletRequestParameterException ex) {
         String message = "Missing required parameter: " + ex.getParameterName();
         return ControllerHelper.sendErrorResponse(HttpStatus.BAD_REQUEST, message);
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-    public ResponseEntity<ApiResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+    public ResponseEntity<ApiResponseHelper> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
         String message = "Invalid value for parameter: " + ex.getName();
         return ControllerHelper.sendErrorResponse(HttpStatus.BAD_REQUEST, message);
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
-    public ResponseEntity<ApiResponse> handleMethodNotAllowed(HttpRequestMethodNotSupportedException ex) {
+    public ResponseEntity<ApiResponseHelper> handleMethodNotAllowed(HttpRequestMethodNotSupportedException ex) {
         return ControllerHelper.sendErrorResponse(HttpStatus.METHOD_NOT_ALLOWED, Constants.METHOD_NOT_ALLOWED_MESSAGE);
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
-    public ResponseEntity<ApiResponse> handleNoResource(NoResourceFoundException ex) {
+    public ResponseEntity<ApiResponseHelper> handleNoResource(NoResourceFoundException ex) {
         return ControllerHelper.sendErrorResponse(HttpStatus.NOT_FOUND, Constants.RESOURCE_NOT_FOUND_MESSAGE);
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse> handleGeneric(Exception ex) {
+    public ResponseEntity<ApiResponseHelper> handleGeneric(Exception ex) {
         log.error("Unhandled exception", ex);
         return ControllerHelper.sendErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, Constants.INTERNAL_SERVER_ERROR_MESSAGE);
     }

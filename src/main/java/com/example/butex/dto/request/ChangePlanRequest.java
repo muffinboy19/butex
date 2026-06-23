@@ -8,6 +8,6 @@ import lombok.Setter;
 @Setter
 public class ChangePlanRequest {
 
-    @NotNull(message = "planDetailsId is required")
-    private Long planDetailsId;
+    @NotNull(message = "newPlanDetailsId is required")
+    private Long newPlanDetailsId;
 }
