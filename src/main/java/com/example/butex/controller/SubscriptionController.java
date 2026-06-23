@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@CrossOrigin(origins = "*")
+@CrossOrigin
 @RequestMapping("/api/v1/users/{userId}/subscriptions")
 @RequiredArgsConstructor
 public class SubscriptionController extends ControllerHelper {
@@ -27,36 +27,41 @@ public class SubscriptionController extends ControllerHelper {
 
     @PostMapping
     public ResponseEntity<?> subscribe(@PathVariable Long userId, @Valid @RequestBody SubscribeRequest request) {
-        return sendSuccessResponse(subscriptionService.subscribe(userId, request), Constants.SUCCESSFUL_STATUS_MESSAGE);
+        return sendSuccessResponse(subscriptionService.subscribe(userId, request), Constants.SUCCESS_STATUS_MESSAGE);
     }
 
     @GetMapping("/current")
     public ResponseEntity<?> getCurrentSubscription(@PathVariable Long userId) {
-        return sendSuccessResponse(subscriptionService.getCurrentSubscription(userId), Constants.SUCCESSFUL_STATUS_MESSAGE);
+        return sendSuccessResponse(subscriptionService.getCurrentSubscription(userId), Constants.SUCCESS_STATUS_MESSAGE);
+    }
+
+    @GetMapping("/events")
+    public ResponseEntity<?> getSubscriptionActionHistory(@PathVariable Long userId) {
+        return sendSuccessResponse(subscriptionService.getSubscriptionActionHistory(userId), Constants.SUCCESS_STATUS_MESSAGE);
     }
 
     @GetMapping
     public ResponseEntity<?> getSubscriptionHistory(@PathVariable Long userId) {
-        return sendSuccessResponse(subscriptionService.getSubscriptionHistory(userId), Constants.SUCCESSFUL_STATUS_MESSAGE);
+        return sendSuccessResponse(subscriptionService.getSubscriptionHistory(userId), Constants.SUCCESS_STATUS_MESSAGE);
     }
 
     @PostMapping("/cancel")
     public ResponseEntity<?> cancelSubscription(@PathVariable Long userId) {
-        return sendSuccessResponse(subscriptionService.cancelSubscription(userId), Constants.SUCCESSFUL_STATUS_MESSAGE);
+        return sendSuccessResponse(subscriptionService.cancelSubscription(userId), Constants.SUCCESS_STATUS_MESSAGE);
     }
 
     @PutMapping("/tier")
     public ResponseEntity<?> changeTier(@PathVariable Long userId, @Valid @RequestBody ChangeTierRequest request) {
-        return sendSuccessResponse(subscriptionService.changeTier(userId, request), Constants.SUCCESSFUL_STATUS_MESSAGE);
+        return sendSuccessResponse(subscriptionService.changeTier(userId, request), Constants.SUCCESS_STATUS_MESSAGE);
     }
 
     @PostMapping("/renew")
     public ResponseEntity<?> renewSubscription(@PathVariable Long userId) {
-        return sendSuccessResponse(subscriptionService.renewSubscription(userId), Constants.SUCCESSFUL_STATUS_MESSAGE);
+        return sendSuccessResponse(subscriptionService.renewSubscription(userId), Constants.SUCCESS_STATUS_MESSAGE);
     }
 
     @PutMapping("/plan")
     public ResponseEntity<?> changePlan(@PathVariable Long userId, @Valid @RequestBody ChangePlanRequest request) {
-        return sendSuccessResponse(subscriptionService.changePlan(userId, request), Constants.SUCCESSFUL_STATUS_MESSAGE);
+        return sendSuccessResponse(subscriptionService.changePlan(userId, request), Constants.SUCCESS_STATUS_MESSAGE);
     }
 }

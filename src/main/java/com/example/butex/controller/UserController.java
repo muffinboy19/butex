@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@CrossOrigin(origins = "*")
+@CrossOrigin
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
 public class UserController extends ControllerHelper {
@@ -24,11 +24,11 @@ public class UserController extends ControllerHelper {
 
     @PostMapping
     public ResponseEntity<?> createUser(@Valid @RequestBody CreateUserRequest request) {
-        return sendSuccessResponse(userService.createUser(request), Constants.SUCCESSFUL_STATUS_MESSAGE);
+        return sendSuccessResponse(userService.createUser(request), Constants.SUCCESS_STATUS_MESSAGE);
     }
 
     @GetMapping("/{userId}")
     public ResponseEntity<?> getUser(@PathVariable Long userId) {
-        return sendSuccessResponse(userService.getUser(userId), Constants.SUCCESSFUL_STATUS_MESSAGE);
+        return sendSuccessResponse(userService.getUser(userId), Constants.SUCCESS_STATUS_MESSAGE);
     }
 }

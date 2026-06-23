@@ -31,7 +31,7 @@ import java.util.List;
 public class CheckoutBenefitService {
 
     private final SubscriptionRepository subscriptionRepository;
-    private final MembershipCatalogService catalogService;
+    private final MembershipService membershipService;
     private final PlanRepository planRepository;
     private final TierRepository tierRepository;
     private final PlanDiscountRuleRepository planDiscountRuleRepository;
@@ -52,8 +52,8 @@ public class CheckoutBenefitService {
             return noMembershipResponse(request);
         }
 
-        PlanDetails planDetails = catalogService.findPlanDetails(subscription.getPlanDetailsId());
-        TierDetails tierDetails = catalogService.findTierDetails(subscription.getTierDetailsId());
+        PlanDetails planDetails = membershipService.findPlanDetails(subscription.getPlanDetailsId());
+        TierDetails tierDetails = membershipService.findTierDetails(subscription.getTierDetailsId());
         Plan plan = planRepository.findById(planDetails.getPlanId())
                 .orElseThrow(() -> new ResourceNotFoundException("Plan not found"));
         Tier tier = tierRepository.findById(tierDetails.getTierId())

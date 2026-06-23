@@ -13,6 +13,7 @@ import com.example.butex.dto.request.ChangePlanRequest;
 import com.example.butex.dto.request.ChangeTierRequest;
 import com.example.butex.dto.request.SubscribeRequest;
 import com.example.butex.dto.response.SubscriptionResponse;
+import com.example.butex.dto.response.UserSubscriptionHistoryResponse;
 import com.example.butex.exception.BusinessException;
 import com.example.butex.exception.ResourceNotFoundException;
 import com.example.butex.repository.PlanRepository;
@@ -35,7 +36,7 @@ public class SubscriptionService {
     private final SubscriptionRepository subscriptionRepository;
     private final UserSubscriptionHistoryRepository historyRepository;
     private final UserService userService;
-    private final MembershipCatalogService catalogService;
+    private final MembershipService membershipService;
     private final PlanRepository planRepository;
     private final TierRepository tierRepository;
     private final TierEligibilityService tierEligibilityService;
@@ -52,11 +53,12 @@ public class SubscriptionService {
                     throw new BusinessException("User already has an active subscription");
                 });
 
-        PlanDetails planDetails = catalogService.getActivePlanDetails(request.getPlanDetailsId());
-        TierDetails tierDetails = catalogService.getActiveTierDetails(request.getTierDetailsId());
+        PlanDetails planDetails = membershipService.getActivePlanDetails(request.getPlanDetailsId());
+        TierDetails tierDetails = membershipService.getActiveTierDetails(request.getTierDetailsId());
         tierEligibilityService.requireEligible(user, tierDetails);
 
         LocalDateTime startsAt = LocalDateTime.now();
+
         Subscription subscription = Subscription.builder()
                 .userId(userId)
                 .planDetailsId(planDetails.getId())
@@ -87,6 +89,14 @@ public class SubscriptionService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<UserSubscriptionHistoryResponse> getSubscriptionActionHistory(Long userId) {
+        userService.findUser(userId);
+        return historyRepository.findByUserIdOrderByActionAtDesc(userId).stream()
+                .map(this::toHistoryResponse)
+                .toList();
+    }
+
     @Transactional
     public SubscriptionResponse cancelSubscription(Long userId) {
         Subscription subscription = getActiveSubscriptionOrThrow(userId);
@@ -100,7 +110,7 @@ public class SubscriptionService {
     @Transactional
     public SubscriptionResponse renewSubscription(Long userId) {
         Subscription subscription = getEffectivelyActiveSubscriptionOrThrow(userId);
-        PlanDetails planDetails = catalogService.getActivePlanDetails(subscription.getPlanDetailsId());
+        PlanDetails planDetails = membershipService.getActivePlanDetails(subscription.getPlanDetailsId());
 
         LocalDateTime extensionStart = subscription.getExpiresAt().isAfter(LocalDateTime.now())
                 ? subscription.getExpiresAt()
@@ -122,8 +132,8 @@ public class SubscriptionService {
         }
 
         Subscription subscription = getEffectivelyActiveSubscriptionOrThrow(userId);
-        PlanDetails currentPlanDetails = catalogService.getActivePlanDetails(subscription.getPlanDetailsId());
-        PlanDetails newPlanDetails = catalogService.getActivePlanDetails(request.getPlanDetailsId());
+        PlanDetails currentPlanDetails = membershipService.getActivePlanDetails(subscription.getPlanDetailsId());
+        PlanDetails newPlanDetails = membershipService.getActivePlanDetails(request.getPlanDetailsId());
 
         if (currentPlanDetails.getId().equals(newPlanDetails.getId())) {
             throw new BusinessException("User is already on this plan details version");
@@ -154,8 +164,8 @@ public class SubscriptionService {
 
         var user = userService.findUser(userId);
         Subscription subscription = getEffectivelyActiveSubscriptionOrThrow(userId);
-        TierDetails currentTierDetails = catalogService.getActiveTierDetails(subscription.getTierDetailsId());
-        TierDetails newTierDetails = catalogService.getActiveTierDetails(request.getTierDetailsId());
+        TierDetails currentTierDetails = membershipService.getActiveTierDetails(subscription.getTierDetailsId());
+        TierDetails newTierDetails = membershipService.getActiveTierDetails(request.getTierDetailsId());
         tierEligibilityService.requireEligible(user, newTierDetails);
 
         Tier currentTier = tierRepository.findById(currentTierDetails.getTierId())
@@ -178,7 +188,7 @@ public class SubscriptionService {
         if (newTier.getRank() <= currentTier.getRank()) {
             return false;
         }
-        TierDetails currentTierDetails = catalogService.findTierDetails(subscription.getTierDetailsId());
+        TierDetails currentTierDetails = membershipService.findTierDetails(subscription.getTierDetailsId());
         if (currentTierDetails.getId().equals(newTierDetails.getId())) {
             return false;
         }
@@ -235,9 +245,21 @@ public class SubscriptionService {
         historyRepository.save(history);
     }
 
+    private UserSubscriptionHistoryResponse toHistoryResponse(UserSubscriptionHistory history) {
+        return UserSubscriptionHistoryResponse.builder()
+                .id(history.getId())
+                .userId(history.getUserId())
+                .subscriptionId(history.getSubscriptionId())
+                .action(history.getAction())
+                .remark(history.getRemark())
+                .actionBy(history.getActionBy())
+                .actionAt(history.getActionAt())
+                .build();
+    }
+
     private SubscriptionResponse toResponse(Subscription subscription) {
-        PlanDetails planDetails = catalogService.findPlanDetails(subscription.getPlanDetailsId());
-        TierDetails tierDetails = catalogService.findTierDetails(subscription.getTierDetailsId());
+        PlanDetails planDetails = membershipService.findPlanDetails(subscription.getPlanDetailsId());
+        TierDetails tierDetails = membershipService.findTierDetails(subscription.getTierDetailsId());
 
         Plan plan = planRepository.findById(planDetails.getPlanId())
                 .orElseThrow(() -> new ResourceNotFoundException("Plan not found"));

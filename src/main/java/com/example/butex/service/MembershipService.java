@@ -9,6 +9,8 @@ import com.example.butex.dto.response.PlanDetailsResponse;
 import com.example.butex.dto.response.PlanResponse;
 import com.example.butex.dto.response.TierDetailsResponse;
 import com.example.butex.dto.response.TierResponse;
+import com.example.butex.exception.BusinessException;
+import com.example.butex.exception.ResourceNotFoundException;
 import com.example.butex.repository.PlanDetailsRepository;
 import com.example.butex.repository.PlanRepository;
 import com.example.butex.repository.TierDetailsRepository;
@@ -26,7 +28,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class MembershipCatalogService {
+public class MembershipService {
 
     private final PlanRepository planRepository;
     private final PlanDetailsRepository planDetailsRepository;
@@ -52,7 +54,7 @@ public class MembershipCatalogService {
     public PlanDetails getActivePlanDetails(Long planDetailsId) {
         PlanDetails planDetails = findPlanDetails(planDetailsId);
         if (planDetails.getStatus() != PlanDetailsStatus.ACTIVE || !isEffectiveNow(planDetails)) {
-            throw new com.example.butex.exception.BusinessException("Plan details is not active");
+            throw new BusinessException("Plan details is not active");
         }
         return planDetails;
     }
@@ -61,7 +63,7 @@ public class MembershipCatalogService {
     public TierDetails getActiveTierDetails(Long tierDetailsId) {
         TierDetails tierDetails = findTierDetails(tierDetailsId);
         if (tierDetails.getStatus() != PlanDetailsStatus.ACTIVE || !isEffectiveNow(tierDetails)) {
-            throw new com.example.butex.exception.BusinessException("Tier details is not active");
+            throw new BusinessException("Tier details is not active");
         }
         return tierDetails;
     }
@@ -88,14 +90,14 @@ public class MembershipCatalogService {
     @Transactional(readOnly = true)
     public PlanDetails findPlanDetails(Long planDetailsId) {
         return planDetailsRepository.findById(planDetailsId)
-                .orElseThrow(() -> new com.example.butex.exception.ResourceNotFoundException(
+                .orElseThrow(() -> new ResourceNotFoundException(
                         "Plan details not found: " + planDetailsId));
     }
 
     @Transactional(readOnly = true)
     public TierDetails findTierDetails(Long tierDetailsId) {
         return tierDetailsRepository.findById(tierDetailsId)
-                .orElseThrow(() -> new com.example.butex.exception.ResourceNotFoundException(
+                .orElseThrow(() -> new ResourceNotFoundException(
                         "Tier details not found: " + tierDetailsId));
     }
 
@@ -103,7 +105,7 @@ public class MembershipCatalogService {
         List<PlanDetailsResponse> details = planDetailsRepository
                 .findByPlanIdAndStatus(plan.getId(), PlanDetailsStatus.ACTIVE)
                 .stream()
-                .filter(MembershipCatalogService::isEffectiveNow)
+                .filter(MembershipService::isEffectiveNow)
                 .map(this::toPlanDetailsResponse)
                 .toList();
 
@@ -120,7 +122,7 @@ public class MembershipCatalogService {
         List<TierDetailsResponse> details = tierDetailsRepository
                 .findByTierIdAndStatus(tier.getId(), PlanDetailsStatus.ACTIVE)
                 .stream()
-                .filter(MembershipCatalogService::isEffectiveNow)
+                .filter(MembershipService::isEffectiveNow)
                 .map(this::toTierDetailsResponse)
                 .toList();
 

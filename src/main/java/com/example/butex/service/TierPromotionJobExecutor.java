@@ -80,7 +80,7 @@ public class TierPromotionJobExecutor {
             TierDetails details = tierDetailsRepository
                     .findByTierIdAndStatusAndIsDefaultTrue(tier.getId(), PlanDetailsStatus.ACTIVE)
                     .orElse(null);
-            if (details == null || !MembershipCatalogService.isEffectiveNow(details)) {
+            if (details == null || !MembershipService.isEffectiveNow(details)) {
                 continue;
             }
             if (tierEligibilityService.qualifies(user, details, totalOrders, monthlySpend)

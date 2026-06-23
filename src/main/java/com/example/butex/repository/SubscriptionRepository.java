@@ -14,9 +14,6 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, Long
 
     List<Subscription> findByUserIdOrderByCreatedAtDesc(Long userId);
 
-    boolean existsByUserIdAndStatus(Long userId, SubscriptionStatus status);
-
     List<Subscription> findByStatus(SubscriptionStatus status);
 
-    List<Subscription> findByStatusAndExpiresAtBefore(SubscriptionStatus status, LocalDateTime expiresAt);
 }

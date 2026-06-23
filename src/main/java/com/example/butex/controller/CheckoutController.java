@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@CrossOrigin(origins = "*")
+@CrossOrigin
 @RequestMapping("/api/v1/users/{userId}/checkout")
 @RequiredArgsConstructor
 public class CheckoutController extends ControllerHelper {
@@ -26,6 +26,6 @@ public class CheckoutController extends ControllerHelper {
                                                @Valid @RequestBody CheckoutBenefitRequest request) {
         return sendSuccessResponse(
                 checkoutBenefitService.calculateBenefits(userId, request),
-                Constants.SUCCESSFUL_STATUS_MESSAGE);
+                Constants.SUCCESS_STATUS_MESSAGE);
     }
 }
