@@ -1,7 +1,10 @@
-package com.example.butex.scheduler;
+package com.example.butex.service.scheduler;
 
-import com.example.butex.service.SubscriptionExpiryService;
-import com.example.butex.service.TierEvaluationService;
+import com.example.butex.entity.Subscription;
+import com.example.butex.enums.SubscriptionStatus;
+import com.example.butex.repository.SubscriptionRepository;
+import com.example.butex.service.SubscriptionService;
+import com.example.butex.service.TierPromotionJobExecutor;
 import com.example.butex.service.lock.LockService;
 import com.example.butex.util.Constants;
 import lombok.RequiredArgsConstructor;
@@ -11,14 +14,16 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class SchedulerService {
 
-    private final SubscriptionExpiryService subscriptionExpiryService;
-    private final TierEvaluationService tierEvaluationService;
+    private final SubscriptionService subscriptionService;
+    private final SubscriptionRepository subscriptionRepository;
+    private final TierPromotionJobExecutor tierPromotionJobExecutor;
     private final LockService lockService;
 
     @Scheduled(cron = Constants.SUBSCRIPTION_EXPIRY_CRON)
@@ -27,7 +32,7 @@ public class SchedulerService {
         lockService.getLockOnKey(key);
         try {
             log.info("Starting scheduled subscription expiry job");
-            subscriptionExpiryService.expireOverdueSubscriptions();
+            subscriptionService.expireOverdueSubscriptions();
         } finally {
             lockService.releaseLockOnKey(key);
         }
@@ -39,9 +44,21 @@ public class SchedulerService {
         lockService.getLockOnKey(key);
         try {
             log.info("Starting scheduled tier promotion job");
-            tierEvaluationService.evaluateAndPromoteEligibleUsers();
+            evaluateAndPromoteEligibleUsers();
         } finally {
             lockService.releaseLockOnKey(key);
         }
+    }
+
+    private void evaluateAndPromoteEligibleUsers() {
+        List<Subscription> activeSubscriptions = subscriptionRepository.findByStatus(SubscriptionStatus.ACTIVE);
+        int promoted = 0;
+        for (Subscription subscription : activeSubscriptions) {
+            if (tierPromotionJobExecutor.promoteIfEligible(subscription)) {
+                promoted++;
+            }
+        }
+        log.info("Tier promotion job finished: promoted {} of {} active subscriptions",
+                promoted, activeSubscriptions.size());
     }
 }

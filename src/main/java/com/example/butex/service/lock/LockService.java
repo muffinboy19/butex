@@ -6,12 +6,4 @@ public interface LockService {
 
     void releaseLockOnKey(String key);
 
-    default void runWithLock(String lockName, Runnable runnable) {
-        getLockOnKey(lockName);
-        try {
-            runnable.run();
-        } finally {
-            releaseLockOnKey(lockName);
-        }
-    }
 }

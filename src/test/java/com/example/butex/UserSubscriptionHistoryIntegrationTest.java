@@ -8,7 +8,7 @@ import com.example.butex.enums.UserSubscriptionHistoryAction;
 import com.example.butex.repository.SubscriptionRepository;
 import com.example.butex.repository.UserOrderRepository;
 import com.example.butex.repository.UserSubscriptionHistoryRepository;
-import com.example.butex.service.SubscriptionExpiryJobExecutor;
+import com.example.butex.service.SubscriptionService;
 import com.example.butex.support.CatalogTestData;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -52,7 +52,7 @@ class UserSubscriptionHistoryIntegrationTest {
     private UserOrderRepository userOrderRepository;
 
     @Autowired
-    private SubscriptionExpiryJobExecutor subscriptionExpiryJobExecutor;
+    private SubscriptionService subscriptionService;
 
     private CatalogTestData.SeededCatalog catalog;
 
@@ -136,7 +136,7 @@ class UserSubscriptionHistoryIntegrationTest {
     void expireWritesExpiredHistory() {
         Subscription subscription = saveActiveSubscription();
 
-        subscriptionExpiryJobExecutor.expire(subscription);
+        subscriptionService.expire(subscription);
 
         assertThat(historyRepository.findByUserIdOrderByActionAtDesc(catalog.getUserId()))
                 .extracting("action")

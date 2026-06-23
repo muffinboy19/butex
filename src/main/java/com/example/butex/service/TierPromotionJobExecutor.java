@@ -28,12 +28,10 @@ public class TierPromotionJobExecutor {
     private final UserOrderRepository userOrderRepository;
     private final TierRepository tierRepository;
     private final TierDetailsRepository tierDetailsRepository;
-    private final TierEligibilityService tierEligibilityService;
-    private final SubscriptionValidityService subscriptionValidityService;
 
     @Transactional
     public boolean promoteIfEligible(Subscription subscription) {
-        if (!subscriptionValidityService.isEffectivelyActive(subscription)) {
+        if (!subscriptionService.isEffectivelyActive(subscription)) {
             return false;
         }
 
@@ -53,7 +51,7 @@ public class TierPromotionJobExecutor {
         }
 
         long totalOrders = userOrderRepository.countByUserId(user.getId());
-        BigDecimal monthlySpend = tierEligibilityService.monthlyOrderValue(user.getId());
+        BigDecimal monthlySpend = subscriptionService.monthlyOrderValue(user.getId());
         TierDetails targetTierDetails = findHighestQualifyingTierDetails(user, totalOrders, monthlySpend);
         if (targetTierDetails == null) {
             return false;
@@ -83,7 +81,7 @@ public class TierPromotionJobExecutor {
             if (details == null || !MembershipService.isEffectiveNow(details)) {
                 continue;
             }
-            if (tierEligibilityService.qualifies(user, details, totalOrders, monthlySpend)
+            if (subscriptionService.qualifiesForTier(user, details, totalOrders, monthlySpend)
                     && tier.getRank() > bestRank) {
                 bestMatch = details;
                 bestRank = tier.getRank();

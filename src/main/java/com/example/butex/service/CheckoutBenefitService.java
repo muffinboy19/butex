@@ -39,7 +39,7 @@ public class CheckoutBenefitService {
     private final PlanDiscountRuleRepository planDiscountRuleRepository;
     private final TierDiscountRuleRepository tierDiscountRuleRepository;
     private final UserService userService;
-    private final SubscriptionValidityService subscriptionValidityService;
+    private final SubscriptionService subscriptionService;
 
     @Transactional(readOnly = true)
     public CheckoutBenefitResponse calculateBenefits(Long userId, CheckoutBenefitRequest request) {
@@ -47,7 +47,7 @@ public class CheckoutBenefitService {
 
         Subscription subscription = subscriptionRepository
                 .findByUserIdAndStatus(userId, SubscriptionStatus.ACTIVE)
-                .filter(subscriptionValidityService::isEffectivelyActive)
+                .filter(subscriptionService::isEffectivelyActive)
                 .orElse(null);
 
         if (subscription == null) {

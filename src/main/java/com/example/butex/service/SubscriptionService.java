@@ -5,6 +5,7 @@ import com.example.butex.entity.PlanDetails;
 import com.example.butex.entity.Subscription;
 import com.example.butex.entity.Tier;
 import com.example.butex.entity.TierDetails;
+import com.example.butex.entity.User;
 import com.example.butex.entity.UserSubscriptionHistory;
 import com.example.butex.enums.SubscriptionStatus;
 import com.example.butex.enums.SubscriptionSubStatus;
@@ -19,12 +20,15 @@ import com.example.butex.exception.ResourceNotFoundException;
 import com.example.butex.repository.PlanRepository;
 import com.example.butex.repository.SubscriptionRepository;
 import com.example.butex.repository.TierRepository;
+import com.example.butex.repository.UserOrderRepository;
 import com.example.butex.repository.UserSubscriptionHistoryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -33,14 +37,85 @@ import java.util.List;
 @Slf4j
 public class SubscriptionService {
 
+    public static final String EXPIRY_ACTION_BY = "subscription-expiry-cron";
+
     private final SubscriptionRepository subscriptionRepository;
     private final UserSubscriptionHistoryRepository historyRepository;
     private final UserService userService;
     private final MembershipService membershipService;
     private final PlanRepository planRepository;
     private final TierRepository tierRepository;
-    private final TierEligibilityService tierEligibilityService;
-    private final SubscriptionValidityService subscriptionValidityService;
+    private final UserOrderRepository userOrderRepository;
+
+    public boolean isEffectivelyActive(Subscription subscription) {
+        return subscription != null
+                && subscription.getStatus() == SubscriptionStatus.ACTIVE
+                && subscription.getExpiresAt().isAfter(LocalDateTime.now());
+    }
+
+    public void expireOverdueSubscriptions() {
+        List<Subscription> activeSubscriptions = subscriptionRepository.findByStatus(SubscriptionStatus.ACTIVE);
+        int expired = 0;
+        for (Subscription subscription : activeSubscriptions) {
+            if (isEffectivelyActive(subscription)) {
+                continue;
+            }
+            if (expire(subscription)) {
+                expired++;
+                log.info("Expired subscription id={} for user {}", subscription.getId(), subscription.getUserId());
+            }
+        }
+        log.info("Subscription expiry job finished: expired {} subscriptions", expired);
+    }
+
+    @Transactional
+    public boolean expire(Subscription subscription) {
+        subscription.setStatus(SubscriptionStatus.EXPIRED);
+        subscriptionRepository.save(subscription);
+        saveHistory(subscription.getUserId(), subscription.getId(), UserSubscriptionHistoryAction.EXPIRED,
+                "Membership expired", EXPIRY_ACTION_BY);
+        return true;
+    }
+
+    @Transactional(readOnly = true)
+    public void requireEligibleTier(User user, TierDetails tierDetails) {
+        if (!qualifiesForTier(user, tierDetails)) {
+            Tier tier = tierRepository.findById(tierDetails.getTierId())
+                    .orElseThrow(() -> new BusinessException("Tier not found"));
+            throw new BusinessException("User does not qualify for tier: " + tier.getCode());
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public boolean qualifiesForTier(User user, TierDetails tierDetails) {
+        long totalOrders = userOrderRepository.countByUserId(user.getId());
+        BigDecimal monthlySpend = monthlyOrderValue(user.getId());
+        return qualifiesForTier(user, tierDetails, totalOrders, monthlySpend);
+    }
+
+    public boolean qualifiesForTier(User user, TierDetails tierDetails, long totalOrders, BigDecimal monthlySpend) {
+        if (tierDetails.getMinOrders() != null && totalOrders < tierDetails.getMinOrders()) {
+            return false;
+        }
+        if (tierDetails.getMinMonthlyOrderValue() != null
+                && monthlySpend.compareTo(tierDetails.getMinMonthlyOrderValue()) < 0) {
+            return false;
+        }
+        if (tierDetails.getCohortCode() != null && !tierDetails.getCohortCode().isBlank()) {
+            if (user.getCohortCode() == null
+                    || !tierDetails.getCohortCode().equalsIgnoreCase(user.getCohortCode())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public BigDecimal monthlyOrderValue(Long userId) {
+        LocalDate firstDay = LocalDate.now().withDayOfMonth(1);
+        LocalDateTime monthStart = firstDay.atStartOfDay();
+        LocalDateTime monthEnd = firstDay.plusMonths(1).atStartOfDay();
+        return userOrderRepository.sumOrderValueForUserBetween(userId, monthStart, monthEnd);
+    }
 
     @Transactional
     public SubscriptionResponse subscribe(Long userId, SubscribeRequest request) {
@@ -48,7 +123,7 @@ public class SubscriptionService {
         validateSubscribeRequest(request);
 
         subscriptionRepository.findByUserIdAndStatus(userId, SubscriptionStatus.ACTIVE)
-                .filter(subscriptionValidityService::isEffectivelyActive)
+                .filter(this::isEffectivelyActive)
                 .ifPresent(sub -> {
                     throw new BusinessException("User already has an active subscription");
                 });
@@ -57,7 +132,7 @@ public class SubscriptionService {
         TierDetails requestedTier = membershipService.getActiveTierDetails(request.getTierDetailsId());
         PlanDetails planDetails = membershipService.resolveDefaultActivePlanDetails(requestedPlan.getPlanId());
         TierDetails tierDetails = membershipService.resolveDefaultActiveTierDetails(requestedTier.getTierId());
-        tierEligibilityService.requireEligible(user, tierDetails);
+        requireEligibleTier(user, tierDetails);
 
         LocalDateTime startsAt = LocalDateTime.now();
 
@@ -180,7 +255,7 @@ public class SubscriptionService {
         Subscription subscription = getEffectivelyActiveSubscriptionOrThrow(userId);
         TierDetails currentTierDetails = membershipService.getActiveTierDetails(subscription.getTierDetailsId());
         TierDetails newTierDetails = membershipService.getActiveTierDetails(request.getNewTierDetailsId());
-        tierEligibilityService.requireEligible(user, newTierDetails);
+        requireEligibleTier(user, newTierDetails);
 
         Tier currentTier = tierRepository.findById(currentTierDetails.getTierId())
                 .orElseThrow(() -> new ResourceNotFoundException("Tier not found"));
@@ -230,7 +305,7 @@ public class SubscriptionService {
     private Subscription getEffectivelyActiveSubscriptionOrThrow(Long userId) {
         Subscription subscription = subscriptionRepository.findByUserIdAndStatus(userId, SubscriptionStatus.ACTIVE)
                 .orElseThrow(() -> new ResourceNotFoundException("No active subscription for user: " + userId));
-        if (!subscriptionValidityService.isEffectivelyActive(subscription)) {
+        if (!isEffectivelyActive(subscription)) {
             throw new ResourceNotFoundException("No active subscription for user: " + userId);
         }
         return subscription;
