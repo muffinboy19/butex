@@ -13,5 +13,4 @@ public class ButexApplication {
     public static void main(String[] args) {
         SpringApplication.run(ButexApplication.class, args);
     }
-
 }
