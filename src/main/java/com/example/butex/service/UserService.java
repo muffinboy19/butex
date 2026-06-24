@@ -30,6 +30,7 @@ public class UserService {
                 .email(request.getEmail())
                 .phone(request.getPhone())
                 .cohortCode(request.getCohortCode())
+                .address(normalizeAddress(request.getAddress()))
                 .build();
 
         User saved = userRepository.save(user);
@@ -67,6 +68,15 @@ public class UserService {
                 .phone(user.getPhone())
                 .active(user.isActive())
                 .cohortCode(user.getCohortCode())
+                .address(user.getAddress())
                 .build();
+    }
+
+    private String normalizeAddress(String address) {
+        if (address == null) {
+            return null;
+        }
+        String trimmed = address.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

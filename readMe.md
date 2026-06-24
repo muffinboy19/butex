@@ -213,7 +213,7 @@ Source DBML (editable): [`docs/DATABASE.dbml`](docs/DATABASE.dbml) — paste int
 
 12 tables, including:
 
-- `users`, `user_addresses`
+- `users` (optional `address` string on user)
 - `plans`, `plan_details`, `plan_discount_rules`, `plan_details_history`
 - `tiers`, `tier_details`, `tier_discount_rules`, `tier_details_history`
 - `subscriptions`, `user_subscription_history`

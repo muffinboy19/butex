@@ -20,4 +20,6 @@ public class CreateUserRequest {
     private String phone;
 
     private String cohortCode;
+
+    private String address;
 }

@@ -17,4 +17,5 @@ public class UserResponse {
     private String phone;
     private boolean active;
     private String cohortCode;
+    private String address;
 }

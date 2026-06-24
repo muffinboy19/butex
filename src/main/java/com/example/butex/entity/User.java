@@ -52,6 +52,9 @@ public class User {
     @Column(name = "cohort_code", length = 64)
     private String cohortCode;
 
+    @Column(length = 512)
+    private String address;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
