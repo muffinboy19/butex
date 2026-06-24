@@ -18,7 +18,7 @@ public final class Constants {
     public static final String SUBSCRIPTION_EXPIRY_LOCK_PREFIX = "subscription-expiry-cron:";
     public static final String TIER_PROMOTION_LOCK_PREFIX = "tier-promotion-cron:";
 
-    public static final String CACHE_MEMBERSHIP_PLANS = "membership-plans-v4";
+    public static final String CACHE_MEMBERSHIP_PLANS = "membership-plans-v2";
 
     private Constants() {
     }
