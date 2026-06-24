@@ -73,9 +73,7 @@ public class MembershipService {
         }
 
         int nextVersion = planDetailsRepository.findMaxVersionByPlanId(planId) + 1;
-        LocalDateTime effectiveFrom = request.getEffectiveFrom() != null
-                ? request.getEffectiveFrom()
-                : LocalDateTime.now();
+        LocalDateTime effectiveFrom = LocalDateTime.now();
 
         PlanDetails saved = planDetailsRepository.save(PlanDetails.builder()
                 .planId(planId)
@@ -89,7 +87,6 @@ public class MembershipService {
                 .earlySaleAccess(Boolean.TRUE.equals(request.getEarlySaleAccess()))
                 .prioritySupport(Boolean.TRUE.equals(request.getPrioritySupport()))
                 .effectiveFrom(effectiveFrom)
-                .effectiveTo(request.getEffectiveTo())
                 .status(PlanDetailsStatus.ACTIVE)
                 .changeNotes(request.getChangeNotes())
                 .build());
@@ -116,6 +113,7 @@ public class MembershipService {
         }
 
         int nextVersion = tierDetailsRepository.findMaxVersionByTierId(tierId) + 1;
+        LocalDateTime effectiveFrom = LocalDateTime.now();
 
         TierDetails saved = tierDetailsRepository.save(TierDetails.builder()
                 .tierId(tierId)
@@ -128,8 +126,7 @@ public class MembershipService {
                 .exclusiveDealsAccess(Boolean.TRUE.equals(request.getExclusiveDealsAccess()))
                 .earlySaleAccess(Boolean.TRUE.equals(request.getEarlySaleAccess()))
                 .prioritySupport(Boolean.TRUE.equals(request.getPrioritySupport()))
-                .effectiveFrom(request.getEffectiveFrom())
-                .effectiveTo(request.getEffectiveTo())
+                .effectiveFrom(effectiveFrom)
                 .status(PlanDetailsStatus.ACTIVE)
                 .changeNotes(request.getChangeNotes())
                 .build());

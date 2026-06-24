@@ -227,7 +227,6 @@ class MembershipApiIntegrationTest {
                                 {
                                   "minOrders": 0,
                                   "minMonthlyOrderValue": 0,
-                                  "effectiveFrom": "2026-06-24T00:00:00",
                                   "extraDiscountPercent": 7.5
                                 }
                                 """))

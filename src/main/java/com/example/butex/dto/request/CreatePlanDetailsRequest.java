@@ -6,7 +6,6 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -31,10 +30,6 @@ public class CreatePlanDetailsRequest {
     private Boolean earlySaleAccess;
 
     private Boolean prioritySupport;
-
-    private LocalDateTime effectiveFrom;
-
-    private LocalDateTime effectiveTo;
 
     private String changeNotes;
 }

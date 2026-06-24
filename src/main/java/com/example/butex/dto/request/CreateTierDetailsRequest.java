@@ -1,11 +1,9 @@
 package com.example.butex.dto.request;
 
-import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -26,11 +24,6 @@ public class CreateTierDetailsRequest {
     private Boolean earlySaleAccess;
 
     private Boolean prioritySupport;
-
-    @NotNull(message = "effectiveFrom is required")
-    private LocalDateTime effectiveFrom;
-
-    private LocalDateTime effectiveTo;
 
     private String changeNotes;
 }
