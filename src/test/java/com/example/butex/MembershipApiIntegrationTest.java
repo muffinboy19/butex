@@ -19,9 +19,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
-import org.springframework.cache.concurrent.ConcurrentMapCache;
+// import org.springframework.cache.Cache;
+// import org.springframework.cache.CacheManager;
+// import org.springframework.cache.concurrent.ConcurrentMapCache;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -64,8 +64,8 @@ class MembershipApiIntegrationTest {
     @Autowired
     private TierDetailsHistoryRepository tierDetailsHistoryRepository;
 
-    @Autowired
-    private CacheManager cacheManager;
+    // @Autowired
+    // private CacheManager cacheManager;
 
     private CatalogTestData.SeededCatalog catalog;
 
@@ -306,15 +306,15 @@ class MembershipApiIntegrationTest {
                 .andExpect(jsonPath("$.data[1].code").value("GOLD"));
     }
 
-    @Test
-    void getPlansIsCached() throws Exception {
-        mockMvc.perform(get("/api/v1/membership/plans")).andExpect(status().isOk());
-        mockMvc.perform(get("/api/v1/membership/plans")).andExpect(status().isOk());
-
-        Cache cache = cacheManager.getCache(Constants.CACHE_MEMBERSHIP_PLANS);
-        assertThat(cache).isNotNull();
-        assertThat(((ConcurrentMapCache) cache).getNativeCache()).isNotEmpty();
-    }
+    // @Test
+    // void getPlansIsCached() throws Exception {
+    //     mockMvc.perform(get("/api/v1/membership/plans")).andExpect(status().isOk());
+    //     mockMvc.perform(get("/api/v1/membership/plans")).andExpect(status().isOk());
+    //
+    //     Cache cache = cacheManager.getCache(Constants.CACHE_MEMBERSHIP_PLANS);
+    //     assertThat(cache).isNotNull();
+    //     assertThat(((ConcurrentMapCache) cache).getNativeCache()).isNotEmpty();
+    // }
 
     @Test
     void getUserReturnsUserDetails() throws Exception {

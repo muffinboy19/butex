@@ -53,7 +53,7 @@ public class SubscriptionService {
                 && subscription.getExpiresAt().isAfter(LocalDateTime.now());
     }
 
-    public void expireOverdueSubscriptions() {
+    public int expireOverdueSubscriptions() {
         List<Subscription> activeSubscriptions = subscriptionRepository.findByStatus(SubscriptionStatus.ACTIVE);
         int expired = 0;
         for (Subscription subscription : activeSubscriptions) {
@@ -66,6 +66,7 @@ public class SubscriptionService {
             }
         }
         log.info("Subscription expiry job finished: expired {} subscriptions", expired);
+        return expired;
     }
 
     @Transactional
