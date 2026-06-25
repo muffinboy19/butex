@@ -4,11 +4,11 @@ import com.example.butex.exception.LockException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.stereotype.Service;
+// import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 
-@Service
+// @Service
 @RequiredArgsConstructor
 @Slf4j
 public class RedisLockService implements LockService {

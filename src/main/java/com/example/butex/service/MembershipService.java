@@ -25,11 +25,10 @@ import com.example.butex.repository.PlanRepository;
 import com.example.butex.repository.TierDetailsHistoryRepository;
 import com.example.butex.repository.TierDetailsRepository;
 import com.example.butex.repository.TierRepository;
-import com.example.butex.util.Constants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
+// import org.springframework.cache.annotation.CacheEvict;
+// import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,7 +48,7 @@ public class MembershipService {
     private final TierDetailsHistoryRepository tierDetailsHistoryRepository;
 
     @Transactional(readOnly = true)
-    @Cacheable(cacheNames = Constants.CACHE_MEMBERSHIP_PLANS)
+    // @Cacheable(cacheNames = Constants.CACHE_MEMBERSHIP_PLANS)
     public List<PlanResponse> getActivePlans() {
         return planRepository.findByActiveTrue().stream()
                 .map(this::toPlanResponse)
@@ -64,7 +63,7 @@ public class MembershipService {
     }
 
     @Transactional
-    @CacheEvict(cacheNames = Constants.CACHE_MEMBERSHIP_PLANS, allEntries = true)
+    // @CacheEvict(cacheNames = Constants.CACHE_MEMBERSHIP_PLANS, allEntries = true)
     public PlanDetailsResponse createPlanDetails(Long planId, CreatePlanDetailsRequest request) {
         Plan plan = planRepository.findById(planId)
                 .orElseThrow(() -> new ResourceNotFoundException("Plan not found: " + planId));
@@ -145,7 +144,7 @@ public class MembershipService {
     }
 
     @Transactional
-    @CacheEvict(cacheNames = Constants.CACHE_MEMBERSHIP_PLANS, allEntries = true)
+    // @CacheEvict(cacheNames = Constants.CACHE_MEMBERSHIP_PLANS, allEntries = true)
     public PlanDetailsResponse updatePlanDetails(Long planId, Long detailsId, UpdatePlanDetailsRequest request) {
         planRepository.findById(planId)
                 .orElseThrow(() -> new ResourceNotFoundException("Plan not found: " + planId));
@@ -190,7 +189,7 @@ public class MembershipService {
     }
 
     @Transactional
-    @CacheEvict(cacheNames = Constants.CACHE_MEMBERSHIP_PLANS, allEntries = true)
+    // @CacheEvict(cacheNames = Constants.CACHE_MEMBERSHIP_PLANS, allEntries = true)
     public PlanDetailsResponse deactivatePlanDetails(Long planId, Long detailsId) {
         planRepository.findById(planId)
                 .orElseThrow(() -> new ResourceNotFoundException("Plan not found: " + planId));
